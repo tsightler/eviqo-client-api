@@ -5,7 +5,6 @@
  * for monitoring and controlling electric vehicle charging stations.
  */
 
-import axios, { AxiosInstance } from 'axios';
 import { EventEmitter } from 'events';
 import WebSocket from 'ws';
 import { calculateHash } from './utils/hash';
@@ -73,23 +72,22 @@ export class EviqoWebsocketConnection extends EventEmitter {
   /**
    * Connect to WebSocket with session cookie
    *
-   * @param httpClient - Optional axios client for HTTP requests
    * @returns True if connection successful, false otherwise
    */
-  async connect(httpClient?: AxiosInstance): Promise<boolean> {
+  async connect(): Promise<boolean> {
     try {
       logger.debug(`Connecting to ${this.url}...`);
 
       // Make HTTP request to login page to capture cookies
       const loginUrl = 'https://app.eviqo.io/dashboard/login';
-      const client = httpClient || axios.create();
-      const response = await client.get(loginUrl);
+      const response = await fetch(loginUrl);
 
       // Parse cookies from response
       let cookieHeader = '';
-      if (response.headers['set-cookie']) {
+      const setCookieHeader = response.headers.get('set-cookie');
+      if (setCookieHeader) {
         const cookieParts: string[] = [];
-        const cookies = response.headers['set-cookie'];
+        const cookies = setCookieHeader.split(', ');
         for (const cookie of cookies) {
           const cookiePair = cookie.split(';')[0];
           cookieParts.push(cookiePair);
