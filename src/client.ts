@@ -430,7 +430,24 @@ export class EviqoWebsocketConnection extends EventEmitter {
               const { header, payload } = parseBinaryMessage(message);
 
               if (header && header.payloadType === 'widget_update') {
-                this.handleWidgetUpdate(payload as Record<string, unknown>);
+                // Look up widget name from widget map
+                const widgetUpdate = payload as Record<string, unknown>;
+                const widgetId = String(widgetUpdate.widgetId);
+                const deviceWidgetMap = this.widgetIdMap.get(0); // First device
+                const widget = deviceWidgetMap?.get(widgetId);
+
+                // Format output to match Python implementation
+                const output = {
+                  widget_id: widgetUpdate.widgetId,
+                  widget_name: widget?.name || 'Unknown',
+                  device_id: widgetUpdate.deviceId,
+                  widget_value: widgetUpdate.widgetValue,
+                };
+
+                // Format with single quotes like Python
+                const formattedOutput = JSON.stringify(output)
+                  .replace(/"([^"]+)":/g, "'$1':");
+                logger.info(formattedOutput);
               }
 
               this.ws?.removeListener('message', messageHandler);

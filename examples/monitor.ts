@@ -16,7 +16,7 @@
  */
 
 import * as dotenv from 'dotenv';
-import { EviqoWebsocketConnection, WS_URL, logger, LogLevel } from '../src';
+import { EviqoWebsocketConnection, WS_URL } from '../src';
 
 // Load environment variables
 dotenv.config();
@@ -33,9 +33,6 @@ async function main(): Promise<void> {
       );
     }
   }
-
-  // Set log level to DEBUG to see all messages
-  logger.setLevel(LogLevel.DEBUG);
 
   // Create client
   const explorer = new EviqoWebsocketConnection(
