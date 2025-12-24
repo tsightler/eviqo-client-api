@@ -5,7 +5,6 @@
  * for monitoring and controlling electric vehicle charging stations.
  */
 
-import axios, { AxiosInstance } from 'axios';
 import { EventEmitter } from 'events';
 import WebSocket from 'ws';
 import { calculateHash } from './utils/hash';
@@ -73,23 +72,22 @@ export class EviqoWebsocketConnection extends EventEmitter {
   /**
    * Connect to WebSocket with session cookie
    *
-   * @param httpClient - Optional axios client for HTTP requests
    * @returns True if connection successful, false otherwise
    */
-  async connect(httpClient?: AxiosInstance): Promise<boolean> {
+  async connect(): Promise<boolean> {
     try {
       logger.debug(`Connecting to ${this.url}...`);
 
       // Make HTTP request to login page to capture cookies
       const loginUrl = 'https://app.eviqo.io/dashboard/login';
-      const client = httpClient || axios.create();
-      const response = await client.get(loginUrl);
+      const response = await fetch(loginUrl);
 
       // Parse cookies from response
       let cookieHeader = '';
-      if (response.headers['set-cookie']) {
+      const setCookieHeader = response.headers.get('set-cookie');
+      if (setCookieHeader) {
         const cookieParts: string[] = [];
-        const cookies = response.headers['set-cookie'];
+        const cookies = setCookieHeader.split(', ');
         for (const cookie of cookies) {
           const cookiePair = cookie.split(';')[0];
           cookieParts.push(cookiePair);
@@ -404,24 +402,7 @@ export class EviqoWebsocketConnection extends EventEmitter {
               const { header, payload } = parseBinaryMessage(message);
 
               if (header && header.payloadType === 'widget_update') {
-                // Look up widget name from widget map
-                const widgetUpdate = payload as Record<string, unknown>;
-                const widgetId = String(widgetUpdate.widgetId);
-                const deviceWidgetMap = this.widgetIdMap.get(0); // First device
-                const widget = deviceWidgetMap?.get(widgetId);
-
-                // Format output to match Python implementation
-                const output = {
-                  widget_id: widgetUpdate.widgetId,
-                  widget_name: widget?.name || 'Unknown',
-                  device_id: widgetUpdate.deviceId,
-                  widget_value: widgetUpdate.widgetValue,
-                };
-
-                // Format with single quotes like Python
-                const formattedOutput = JSON.stringify(output)
-                  .replace(/"([^"]+)":/g, "'$1':");
-                logger.info(formattedOutput);
+                this.handleWidgetUpdate(payload as Record<string, unknown>);
               }
 
               this.ws?.removeListener('message', messageHandler);
