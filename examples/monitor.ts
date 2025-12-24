@@ -34,9 +34,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // Set log level to DEBUG to see all messages
-  logger.setLevel(LogLevel.DEBUG);
-
   // Create client
   const explorer = new EviqoWebsocketConnection(
     WS_URL,

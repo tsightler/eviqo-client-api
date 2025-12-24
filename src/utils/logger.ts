@@ -73,7 +73,7 @@ class Logger {
 }
 
 // Create default logger instance
-export const logger = new Logger('evipy', LogLevel.DEBUG);
+export const logger = new Logger('eviqo-client-api', LogLevel.INFO);
 
 // Export Logger class for custom instances
 export { Logger };
