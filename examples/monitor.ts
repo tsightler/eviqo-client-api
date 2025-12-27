@@ -42,17 +42,6 @@ async function main(): Promise<void> {
     eviqoPassword
   );
 
-  // Listen for widget updates
-  explorer.on('widgetUpdate', (update) => {
-    console.log('Widget Update:', {
-      widget_id: update.widgetId,
-      widget_name: update.widgetStream.name,
-      device_id: update.deviceId,
-      widget_value: update.widgetValue,
-      time: update.time.toISOString(),
-    });
-  });
-
   // Run the client
   await explorer.run();
 }
