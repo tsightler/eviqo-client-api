@@ -63,7 +63,8 @@ export function parseBinaryMessage(data: Buffer): ParsedMessage {
     const payloadData = data.subarray(4);
 
     // Check if this is a widget update message (byte2 == 0x14)
-    if (byte2 === 0x14) {
+    // or a user-driven update message (byte2 == 0x19)
+    if (byte2 === 0x14 || byte2 === 0x19) {
       payloadType = 'widget_update';
       payload = parseWidgetUpdate(payloadData);
     } else {

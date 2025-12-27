@@ -107,6 +107,27 @@ describe('parseBinaryMessage', () => {
     expect(payload).toBeDefined();
     expect(typeof payload).toBe('object');
   });
+
+  it('should detect user-driven update messages', () => {
+    // User-driven update has byte2 = 0x19
+    const payloadBytes = Buffer.from('89349\x00vw\x005\x00123.45', 'binary');
+    const header = Buffer.from([0x00, 0x19, 0x00, 0x00]);
+    const message = Buffer.concat([header, payloadBytes]);
+
+    const { header: parsedHeader, payload } = parseBinaryMessage(message);
+
+    expect(parsedHeader).not.toBeNull();
+    expect(parsedHeader?.byte2).toBe(0x19);
+    expect(parsedHeader?.payloadType).toBe('widget_update');
+    expect(payload).toBeDefined();
+    expect(typeof payload).toBe('object');
+
+    // Verify the payload is correctly parsed
+    const update = payload as Record<string, unknown>;
+    expect(update.deviceId).toBe('89349');
+    expect(update.widgetId).toBe('5');
+    expect(update.widgetValue).toBe('123.45');
+  });
 });
 
 describe('parseWidgetUpdate', () => {
