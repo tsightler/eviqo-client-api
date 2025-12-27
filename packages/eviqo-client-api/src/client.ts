@@ -145,6 +145,7 @@ export class EviqoWebsocketConnection extends EventEmitter {
    * Check and send keepalive if needed
    *
    * Sends keepalive message every 15 seconds to maintain connection
+   * Message type 0x06 for keepalive/ping
    */
   async keepalive(): Promise<void> {
     logger.debug('Keepalive check');
@@ -155,7 +156,7 @@ export class EviqoWebsocketConnection extends EventEmitter {
       // 15 seconds
       logger.info('Issue keepalive');
       this.keepaliveTimer = new Date();
-      await this.sendMessage(null, 0x00, 0x06, 0x00, undefined, 'KEEPALIVE');
+      await this.sendMessage(null, 0x06, 'KEEPALIVE');
       await this.listen();
     }
   }
@@ -172,8 +173,8 @@ export class EviqoWebsocketConnection extends EventEmitter {
       locale: 'en_US',
     };
 
-    // Header: 0x01300001
-    await this.sendMessage(initPayload, 0x01, 0x30, 0x00, 0x01, 'INIT');
+    // Message type 0x30 for init
+    await this.sendMessage(initPayload, 0x30, 'INIT');
 
     const { payload } = await this.listen();
     if (payload === null) {
@@ -184,10 +185,7 @@ export class EviqoWebsocketConnection extends EventEmitter {
   /**
    * Send login message with hashed password
    *
-   * AUTH:
-   * 0x00020003{"email":"<EMAIL>","hash":"<B64_HASH>","clientType":"web","version":"0.98.2","locale":"en_US"}
-   * RESP:
-   * 0x00020003<EviqoUserModel>
+   * Message type 0x02 for login
    */
   async login(): Promise<void> {
     logger.debug('Sending login message...');
@@ -204,10 +202,7 @@ export class EviqoWebsocketConnection extends EventEmitter {
         version: '0.98.2',
         locale: 'en_US',
       },
-      0x00,
       0x02,
-      0x00,
-      0x03,
       'LOGIN'
     );
 
@@ -220,6 +215,8 @@ export class EviqoWebsocketConnection extends EventEmitter {
 
   /**
    * Query devices associated with the account
+   *
+   * Message type 0x1b for device query
    */
   async queryDevices(): Promise<void> {
     logger.debug('Sending device query message...');
@@ -242,10 +239,7 @@ export class EviqoWebsocketConnection extends EventEmitter {
         order: 'ASC',
         sortBy: 'Name',
       },
-      0x01,
       0x1b,
-      0x00,
-      undefined,
       'DEVICE QUERY'
     );
 
@@ -280,30 +274,22 @@ export class EviqoWebsocketConnection extends EventEmitter {
 
     logger.debug('Requesting charging status...');
 
-    await this.sendMessage(
-      String(deviceId),
-      0x00,
-      0x49,
-      0x01,
-      undefined,
-      'DEVICE NUMBER'
-    );
+    // Message type 0x49 for device number/selection
+    await this.sendMessage(String(deviceId), 0x49, 'DEVICE NUMBER');
 
     // Expect one message
     let result = await this.listen();
     logger.debug(JSON.stringify(result.header));
     logger.debug(JSON.stringify(result.payload));
 
+    // Message type 0x04 for device page request
     await this.sendMessage(
       {
         pageId,
         deviceId: String(deviceId),
         dashboardPageId: null,
       },
-      0x01,
       0x04,
-      0x01,
-      undefined,
       'DEVICE PAGE'
     );
 
@@ -526,19 +512,18 @@ export class EviqoWebsocketConnection extends EventEmitter {
   /**
    * Send a binary message to the WebSocket
    *
+   * Message format (3-byte header):
+   * - 1 byte: message type
+   * - 2 bytes: message ID (big-endian, auto-incremented)
+   * - Payload
+   *
    * @param payload - Message payload (object, string, or null)
-   * @param byte1 - First header byte (default: 0x00)
-   * @param byte2 - Second header byte (default: 0x00)
-   * @param byte3 - Third header byte (default: 0x00)
-   * @param byte4 - Fourth header byte (auto-increment if undefined)
+   * @param messageType - Message type byte (e.g., 0x02 for login, 0x06 for keepalive)
    * @param description - Description for logging
    */
   async sendMessage(
     payload: Record<string, unknown> | string | null = null,
-    byte1 = 0x00,
-    byte2 = 0x00,
-    byte3 = 0x00,
-    byte4: number | undefined = undefined,
+    messageType = 0x00,
     description = ''
   ): Promise<void> {
     if (this.ws === null) {
@@ -547,20 +532,11 @@ export class EviqoWebsocketConnection extends EventEmitter {
     }
 
     try {
-      let actualByte4 = byte4;
-      if (actualByte4 === undefined) {
-        actualByte4 = this.messageCounter;
-        this.messageCounter += 1;
-      }
+      const msgId = this.messageCounter;
+      this.messageCounter += 1;
 
-      const message = createBinaryMessage(
-        payload,
-        byte1,
-        byte2,
-        byte3,
-        actualByte4
-      );
-      logger.info(`SENDING ${description} [byte4=${actualByte4}, counter=${this.messageCounter}]`);
+      const message = createBinaryMessage(payload, messageType, msgId);
+      logger.info(`SENDING ${description} [type=0x${messageType.toString(16)}, msgId=${msgId}]`);
       logger.info(`Outbound hex: ${message.toString('hex')}`);
       this.ws.send(message);
     } catch (error) {

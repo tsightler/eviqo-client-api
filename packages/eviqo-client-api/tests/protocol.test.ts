@@ -11,36 +11,52 @@ import {
 
 describe('createBinaryMessage', () => {
   it('should create a header-only message', () => {
-    const message = createBinaryMessage(null, 0x01, 0x02, 0x03, 0x04);
+    const message = createBinaryMessage(null, 0x06, 0x0005);
     expect(message).toBeInstanceOf(Buffer);
-    expect(message.length).toBe(4);
-    expect(message[0]).toBe(0x01);
-    expect(message[1]).toBe(0x02);
-    expect(message[2]).toBe(0x03);
-    expect(message[3]).toBe(0x04);
+    expect(message.length).toBe(3);
+    expect(message[0]).toBe(0x06); // message type
+    expect(message[1]).toBe(0x00); // message ID high byte
+    expect(message[2]).toBe(0x05); // message ID low byte
   });
 
   it('should create a message with string payload', () => {
-    const message = createBinaryMessage('test', 0x01, 0x02, 0x03, 0x04);
-    expect(message.length).toBeGreaterThan(4);
-    const payload = message.subarray(4).toString('utf-8');
+    const message = createBinaryMessage('test', 0x49, 0x0003);
+    expect(message.length).toBeGreaterThan(3);
+    expect(message[0]).toBe(0x49);
+    expect(message[1]).toBe(0x00);
+    expect(message[2]).toBe(0x03);
+    const payload = message.subarray(3).toString('utf-8');
     expect(payload).toBe('test');
   });
 
   it('should create a message with JSON payload', () => {
     const payload = { key: 'value', number: 42 };
-    const message = createBinaryMessage(payload, 0x01, 0x02, 0x03, 0x04);
-    expect(message.length).toBeGreaterThan(4);
-    const parsedPayload = JSON.parse(message.subarray(4).toString('utf-8'));
+    const message = createBinaryMessage(payload, 0x02, 0x0000);
+    expect(message.length).toBeGreaterThan(3);
+    expect(message[0]).toBe(0x02);
+    const parsedPayload = JSON.parse(message.subarray(3).toString('utf-8'));
     expect(parsedPayload).toEqual(payload);
   });
 
-  it('should use default header bytes', () => {
+  it('should use default values', () => {
     const message = createBinaryMessage(null);
-    expect(message[0]).toBe(0x00);
+    expect(message[0]).toBe(0x00); // default message type
+    expect(message[1]).toBe(0x00); // default message ID high
+    expect(message[2]).toBe(0x00); // default message ID low
+  });
+
+  it('should create keepalive message like official client', () => {
+    // Official: 06 00 06
+    const message = createBinaryMessage(null, 0x06, 0x0006);
+    expect(message.toString('hex')).toBe('060006');
+  });
+
+  it('should create login message like official client', () => {
+    // Official: 02 00 00 {...json...}
+    const message = createBinaryMessage({ email: 'test' }, 0x02, 0x0000);
+    expect(message[0]).toBe(0x02);
     expect(message[1]).toBe(0x00);
     expect(message[2]).toBe(0x00);
-    expect(message[3]).toBe(0x00);
   });
 });
 
