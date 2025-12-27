@@ -241,9 +241,9 @@ export function createCommandMessage(
   const msgIdBytes = Buffer.alloc(2);
   msgIdBytes.writeUInt16BE(messageId & 0xffff, 0);
 
-  // Build payload: deviceId\0vw\0pin\0value\0
+  // Build payload: deviceId\0vw\0pin\0value (no trailing null on value)
   const payload = Buffer.from(
-    `${deviceId}\x00vw\x00${pin}\x00${value}\x00`,
+    `${deviceId}\x00vw\x00${pin}\x00${value}`,
     'binary'
   );
 

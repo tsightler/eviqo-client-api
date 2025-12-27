@@ -170,9 +170,9 @@ describe('createCommandMessage', () => {
     expect(message[1]).toBe(0x00); // Message ID high byte
     expect(message[2]).toBe(0xbb); // Message ID low byte
 
-    // Payload starts at byte 3
+    // Payload starts at byte 3 (no trailing null on value)
     const payload = message.subarray(3).toString('binary');
-    expect(payload).toBe('51627\x00vw\x003\x0032\x00');
+    expect(payload).toBe('51627\x00vw\x003\x0032');
   });
 
   it('should create a command message for setting current to 40', () => {
@@ -183,7 +183,7 @@ describe('createCommandMessage', () => {
     expect(message[2]).toBe(0xbc);
 
     const payload = message.subarray(3).toString('binary');
-    expect(payload).toBe('51627\x00vw\x003\x0040\x00');
+    expect(payload).toBe('51627\x00vw\x003\x0040');
   });
 
   it('should create a command message for start charging', () => {
@@ -195,7 +195,7 @@ describe('createCommandMessage', () => {
     expect(message[2]).toBe(0xbd);
 
     const payload = message.subarray(3).toString('binary');
-    expect(payload).toBe('51627\x00vw\x001\x001\x00');
+    expect(payload).toBe('51627\x00vw\x001\x001');
   });
 
   it('should handle message ID wrap-around', () => {
@@ -207,8 +207,8 @@ describe('createCommandMessage', () => {
 
   it('should match expected hex output for 32A command', () => {
     const message = createCommandMessage('51627', '3', '32', 0x00bb);
-    // Expected: 14 00 bb 35 31 36 32 37 00 76 77 00 33 00 33 32 00
-    const expectedHex = '1400bb3531363237007677003300333200';
+    // Expected: 14 00 bb 35 31 36 32 37 00 76 77 00 33 00 33 32 (no trailing null)
+    const expectedHex = '1400bb35313632370076770033003332';
 
     expect(message.toString('hex')).toBe(expectedHex);
   });
