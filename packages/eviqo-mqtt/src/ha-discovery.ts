@@ -214,7 +214,7 @@ export function createNumberConfig(
     name: `${name} Limit`,
     unique_id: uniqueId,
     state_topic: `${topicPrefix}/${device.id}/sensor/${entityId}/state`,
-    command_topic: `${topicPrefix}/${device.id}/number/${entityId}/set`,
+    command_topic: `${topicPrefix}/${device.id}/sensor/${entityId}/set`,
     device: createDeviceInfo(device),
     availability_topic: `${topicPrefix}/${device.id}/status`,
     payload_available: 'online',

@@ -282,7 +282,7 @@ export class EviqoMqttGateway extends EventEmitter {
           const controlSettings = CONTROLLABLE_WIDGETS[stream.name];
           if (controlSettings) {
             const entityId = normalizeTopicName(stream.name);
-            const commandTopic = `${this.config.topicPrefix}/${device.id}/number/${entityId}/set`;
+            const commandTopic = `${this.config.topicPrefix}/${device.id}/sensor/${entityId}/set`;
 
             // Store mapping for handling commands
             this.commandTopicMap.set(commandTopic, {
