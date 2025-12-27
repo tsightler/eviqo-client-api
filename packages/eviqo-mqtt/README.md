@@ -1,4 +1,4 @@
-# Eviqo MQTT Gateway
+# Eviqo MQTT
 
 MQTT gateway for Eviqo EV charging stations with Home Assistant auto-discovery support.
 
@@ -20,13 +20,13 @@ This gateway bridges your Eviqo EV charger data to MQTT, enabling integration wi
 ## Installation
 
 ```bash
-npm install eviqo-mqtt-gateway
+npm install eviqo-mqtt
 ```
 
 Or run directly with npx:
 
 ```bash
-npx eviqo-mqtt-gateway
+npx eviqo-mqtt
 ```
 
 ## Quick Start
@@ -43,7 +43,7 @@ export MQTT_HOST="localhost"
 export MQTT_PORT="1883"
 
 # Start the gateway
-npx eviqo-mqtt-gateway
+npx eviqo-mqtt
 ```
 
 ### Using a .env File
@@ -69,7 +69,7 @@ LOG_LEVEL=info
 Then run:
 
 ```bash
-npx eviqo-mqtt-gateway
+npx eviqo-mqtt
 ```
 
 ## Configuration
@@ -146,7 +146,7 @@ Home Assistant will automatically detect and create entities for:
 To remove all Home Assistant discovery configs:
 
 ```bash
-npx eviqo-mqtt-gateway --remove-discovery
+npx eviqo-mqtt --remove-discovery
 ```
 
 ## Docker
@@ -154,8 +154,8 @@ npx eviqo-mqtt-gateway --remove-discovery
 ```dockerfile
 FROM node:20-alpine
 WORKDIR /app
-RUN npm install eviqo-mqtt-gateway
-CMD ["npx", "eviqo-mqtt-gateway"]
+RUN npm install eviqo-mqtt
+CMD ["npx", "eviqo-mqtt"]
 ```
 
 ```bash
@@ -163,13 +163,13 @@ docker run -d \
   -e EVIQO_EMAIL=your-email@example.com \
   -e EVIQO_PASSWORD=your-password \
   -e MQTT_HOST=192.168.1.100 \
-  eviqo-mqtt-gateway
+  eviqo-mqtt
 ```
 
 ## Programmatic Usage
 
 ```typescript
-import { EviqoMqttGateway, loadConfig } from 'eviqo-mqtt-gateway';
+import { EviqoMqttGateway, loadConfig } from 'eviqo-mqtt';
 
 // Load config from environment
 const config = loadConfig();
@@ -217,13 +217,13 @@ await gateway.stop();
 Enable debug logging to see detailed connection and message information:
 
 ```bash
-npx eviqo-mqtt-gateway --debug
+npx eviqo-mqtt --debug
 ```
 
 Or set the environment variable:
 
 ```bash
-LOG_LEVEL=debug npx eviqo-mqtt-gateway
+LOG_LEVEL=debug npx eviqo-mqtt
 ```
 
 ### Common Issues

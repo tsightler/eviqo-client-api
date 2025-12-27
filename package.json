@@ -9,7 +9,7 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "build:client": "npm run build -w eviqo-client-api",
-    "build:gateway": "npm run build -w eviqo-mqtt-gateway",
+    "build:mqtt": "npm run build -w eviqo-mqtt",
     "test": "npm test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "clean": "rm -rf packages/*/dist packages/*/node_modules node_modules"

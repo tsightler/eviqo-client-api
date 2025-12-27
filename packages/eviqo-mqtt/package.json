@@ -1,5 +1,5 @@
 {
-  "name": "eviqo-mqtt-gateway",
+  "name": "eviqo-mqtt",
   "version": "1.0.0",
   "description": "MQTT gateway for Eviqo EV charging stations with Home Assistant auto-discovery support",
   "main": "dist/index.js",
@@ -39,12 +39,12 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/tsightler/eviqo-client-api.git",
-    "directory": "packages/eviqo-mqtt-gateway"
+    "directory": "packages/eviqo-mqtt"
   },
   "bugs": {
     "url": "https://github.com/tsightler/eviqo-client-api/issues"
   },
-  "homepage": "https://github.com/tsightler/eviqo-client-api/tree/main/packages/eviqo-mqtt-gateway#readme",
+  "homepage": "https://github.com/tsightler/eviqo-client-api/tree/main/packages/eviqo-mqtt#readme",
   "engines": {
     "node": ">=18.0.0"
   },

@@ -7,7 +7,7 @@ Monorepo containing packages for Eviqo EV charger integration.
 | Package | Description |
 |---------|-------------|
 | [eviqo-client-api](./packages/eviqo-client-api) | Node.js/TypeScript client library for Eviqo EV charging stations |
-| [eviqo-mqtt-gateway](./packages/eviqo-mqtt-gateway) | MQTT gateway with Home Assistant auto-discovery support |
+| [eviqo-mqtt](./packages/eviqo-mqtt) | MQTT gateway with Home Assistant auto-discovery support |
 
 ## Quick Start
 
@@ -39,7 +39,7 @@ export EVIQO_PASSWORD="password"
 export MQTT_HOST="localhost"
 
 # Run the gateway
-npx eviqo-mqtt-gateway
+npx eviqo-mqtt
 ```
 
 ## Development
@@ -58,7 +58,7 @@ npm test
 
 # Build specific package
 npm run build -w eviqo-client-api
-npm run build -w eviqo-mqtt-gateway
+npm run build -w eviqo-mqtt
 ```
 
 ## License
