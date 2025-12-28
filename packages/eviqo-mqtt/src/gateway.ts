@@ -390,9 +390,12 @@ export class EviqoMqttGateway extends EventEmitter {
     const transformer = VALUE_TRANSFORMERS[widgetName];
     const publishValue = transformer ? transformer(update.widgetValue) : update.widgetValue;
 
+    // State values should not be retained (they're transient)
+    const shouldRetain = widgetName !== 'State';
+
     logger.debug(`Publishing: ${topic} = ${publishValue}`);
 
-    this.mqttClient.publish(topic, publishValue, { retain: true });
+    this.mqttClient.publish(topic, publishValue, { retain: shouldRetain });
 
     // Emit event for external handlers
     this.emit('widgetUpdate', update);
@@ -471,7 +474,10 @@ export class EviqoMqttGateway extends EventEmitter {
           const transformer = VALUE_TRANSFORMERS[widgetName];
           const publishValue = transformer ? transformer(rawValue) : rawValue;
 
-          this.mqttClient.publish(topic, publishValue, { retain: true });
+          // State values should not be retained (they're transient)
+          const shouldRetain = widgetName !== 'State';
+
+          this.mqttClient.publish(topic, publishValue, { retain: shouldRetain });
         }
       }
     }
