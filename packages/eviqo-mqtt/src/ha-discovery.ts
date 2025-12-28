@@ -70,7 +70,7 @@ export const WIDGET_MAPPINGS: Record<string, WidgetMapping> = {
   'Session Energy': { device_class: 'energy', unit: 'kWh', state_class: 'total_increasing' },
 
   // Electrical
-  'Voltage': { device_class: 'voltage', unit: 'V', state_class: 'measurement', precision: 1 },
+  'Voltage': { device_class: 'voltage', unit: 'V', state_class: 'measurement', precision: 2 },
   'Amperage': { device_class: 'current', unit: 'A', state_class: 'measurement' },
   'Frequency': { device_class: 'frequency', unit: 'Hz', state_class: 'measurement' },
 
