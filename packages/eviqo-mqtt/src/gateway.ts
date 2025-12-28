@@ -296,7 +296,7 @@ export class EviqoMqttGateway extends EventEmitter {
         for (const stream of module.displayDataStreams) {
           const controlSettings = CONTROLLABLE_WIDGETS[stream.name];
           if (controlSettings) {
-            const entityId = getTopicId(stream.name);
+            const entityId = controlSettings.topic_id;
             const commandTopic = `${this.config.topicPrefix}/${device.id}/${entityId}/set`;
             const stateTopic = `${this.config.topicPrefix}/${device.id}/${entityId}/state`;
 

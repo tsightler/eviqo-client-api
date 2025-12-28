@@ -69,7 +69,6 @@ export const WIDGET_MAPPINGS: Record<string, WidgetMapping> = {
 
   // Electrical
   'Voltage': { device_class: 'voltage', unit: 'V', state_class: 'measurement' },
-  'Current': { device_class: 'current', unit: 'A', state_class: 'measurement', topic_id: 'current_limit' },
   'Amperage': { device_class: 'current', unit: 'A', state_class: 'measurement' },
   'Frequency': { device_class: 'frequency', unit: 'Hz', state_class: 'measurement' },
 
@@ -213,9 +212,9 @@ export function createBinarySensorConfig(
  */
 export const CONTROLLABLE_WIDGETS: Record<
   string,
-  { pin: string; min: number; step: number; mode: string; icon?: string; maxWidgetName?: string; defaultMax?: number }
+  { pin: string; min: number; step: number; mode: string; icon?: string; maxWidgetName?: string; defaultMax?: number; topic_id: string }
 > = {
-  Current: { pin: '3', min: 0, step: 1, mode: 'slider', icon: 'mdi:current-ac', maxWidgetName: 'Current max', defaultMax: 48 },
+  Current: { pin: '3', min: 0, step: 1, mode: 'slider', icon: 'mdi:current-ac', maxWidgetName: 'Current max', defaultMax: 48, topic_id: 'current_limit' },
 };
 
 /**
@@ -242,10 +241,10 @@ export function createNumberConfig(
   topicPrefix: string,
   device: EviqoDevicePageModel,
   name: string,
-  settings: { pin: string; min: number; step: number; mode: string; icon?: string; maxWidgetName?: string; defaultMax?: number }
+  settings: { pin: string; min: number; step: number; mode: string; icon?: string; maxWidgetName?: string; defaultMax?: number; topic_id: string }
 ): { topic: string; payload: HaEntityConfig } {
   const deviceId = `eviqo_${device.id}`;
-  const entityId = getTopicId(name);
+  const entityId = settings.topic_id;
   const uniqueId = `${deviceId}_${entityId}_control`;
 
   // Determine max value from widget or default
