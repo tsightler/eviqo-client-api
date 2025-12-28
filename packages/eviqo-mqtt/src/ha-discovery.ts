@@ -213,10 +213,26 @@ export function createBinarySensorConfig(
  */
 export const CONTROLLABLE_WIDGETS: Record<
   string,
-  { pin: string; min: number; step: number; mode: string; icon?: string }
+  { pin: string; min: number; step: number; mode: string; icon?: string; maxWidgetName?: string; defaultMax?: number }
 > = {
-  Current: { pin: '3', min: 6, step: 1, mode: 'slider', icon: 'mdi:current-ac' },
+  Current: { pin: '3', min: 0, step: 1, mode: 'slider', icon: 'mdi:current-ac', maxWidgetName: 'Current max', defaultMax: 48 },
 };
+
+/**
+ * Find a widget value by name from a device's dashboard
+ */
+export function findWidgetValue(device: EviqoDevicePageModel, widgetName: string): string | undefined {
+  for (const widget of device.dashboard.widgets) {
+    for (const module of widget.modules) {
+      for (const stream of module.displayDataStreams) {
+        if (stream.name === widgetName) {
+          return stream.visualization.value;
+        }
+      }
+    }
+  }
+  return undefined;
+}
 
 /**
  * Create Home Assistant number entity discovery config
@@ -226,11 +242,24 @@ export function createNumberConfig(
   topicPrefix: string,
   device: EviqoDevicePageModel,
   name: string,
-  settings: { pin: string; min: number; step: number; mode: string; icon?: string }
+  settings: { pin: string; min: number; step: number; mode: string; icon?: string; maxWidgetName?: string; defaultMax?: number }
 ): { topic: string; payload: HaEntityConfig } {
   const deviceId = `eviqo_${device.id}`;
   const entityId = getTopicId(name);
   const uniqueId = `${deviceId}_${entityId}_control`;
+
+  // Determine max value from widget or default
+  let maxValue = settings.defaultMax || 48;
+  if (settings.maxWidgetName) {
+    const maxWidgetValue = findWidgetValue(device, settings.maxWidgetName);
+    if (maxWidgetValue) {
+      const parsed = parseInt(maxWidgetValue, 10);
+      // 0 means unlimited, use default max
+      if (parsed > 0) {
+        maxValue = parsed;
+      }
+    }
+  }
 
   const config: HaEntityConfig = {
     name: `${name} Limit`,
@@ -242,6 +271,7 @@ export function createNumberConfig(
     payload_available: 'online',
     payload_not_available: 'offline',
     min: settings.min,
+    max: maxValue,
     step: settings.step,
     mode: settings.mode,
     unit_of_measurement: 'A',

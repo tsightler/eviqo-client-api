@@ -372,11 +372,13 @@ export class EviqoMqttGateway extends EventEmitter {
    * Publish a widget value to MQTT
    *
    * Handles topic construction, value transformation, and retain logic.
+   * @param retain - Whether to retain the message (defaults to false for updates, true for initial values)
    */
   private publishWidgetValue(
     deviceId: string | number,
     widgetName: string,
-    rawValue: string
+    rawValue: string,
+    retain = false
   ): void {
     if (!this.mqttClient || !this.mqttClient.connected) return;
     // Only publish widgets that have a mapping defined
@@ -389,16 +391,15 @@ export class EviqoMqttGateway extends EventEmitter {
     const sensorId = getTopicId(widgetName);
     const topic = `${this.config.topicPrefix}/${deviceId}/${sensorId}/state`;
 
-    logger.debug(`Publishing: ${topic} = ${publishValue}`);
+    logger.debug(`Publishing: ${topic} = ${publishValue} (retain=${retain})`);
 
-    // Widget state values are not retained
-    this.mqttClient.publish(topic, publishValue, { retain: false });
+    this.mqttClient.publish(topic, publishValue, { retain });
 
     // If this is Status, also update the charging binary sensor
     if (widgetName === 'Status') {
       const chargingTopic = `${this.config.topicPrefix}/${deviceId}/charging/state`;
       const isCharging = rawValue === '2'; // 2 = charging
-      this.mqttClient.publish(chargingTopic, isCharging ? 'ON' : 'OFF', { retain: false });
+      this.mqttClient.publish(chargingTopic, isCharging ? 'ON' : 'OFF', { retain });
     }
   }
 
@@ -469,6 +470,7 @@ export class EviqoMqttGateway extends EventEmitter {
 
   /**
    * Publish initial widget values for a device
+   * Initial values are retained so HA can pick them up after a restart
    */
   private async publishInitialWidgetValues(device: EviqoDevicePageModel): Promise<void> {
     const dashboard = device.dashboard;
@@ -477,7 +479,8 @@ export class EviqoMqttGateway extends EventEmitter {
       for (const module of widget.modules) {
         for (const stream of module.displayDataStreams) {
           const rawValue = stream.visualization.value || '0';
-          this.publishWidgetValue(device.id, stream.name, rawValue);
+          // Retain initial values so HA can see them after restart
+          this.publishWidgetValue(device.id, stream.name, rawValue, true);
         }
       }
     }
