@@ -33,6 +33,22 @@ function normalizeTopicName(name: string): string {
 }
 
 /**
+ * Value transformers for specific widgets
+ * Maps widget name to a function that transforms the raw value
+ */
+const VALUE_TRANSFORMERS: Record<string, (value: string) => string> = {
+  State: (value: string) => {
+    const stateMap: Record<string, string> = {
+      '0': 'unplugged',
+      '1': 'plugged',
+      '2': 'charging',
+      '3': 'stopped',
+    };
+    return stateMap[value] || value;
+  },
+};
+
+/**
  * Gateway state
  */
 export type GatewayState = 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -366,12 +382,17 @@ export class EviqoMqttGateway extends EventEmitter {
   private async handleWidgetUpdate(update: WidgetUpdate): Promise<void> {
     if (!this.mqttClient || !this.mqttClient.connected) return;
 
-    const sensorId = normalizeTopicName(update.widgetStream.name);
+    const widgetName = update.widgetStream.name;
+    const sensorId = normalizeTopicName(widgetName);
     const topic = `${this.config.topicPrefix}/${update.deviceId}/sensor/${sensorId}/state`;
 
-    logger.debug(`Publishing: ${topic} = ${update.widgetValue}`);
+    // Apply value transformer if one exists for this widget
+    const transformer = VALUE_TRANSFORMERS[widgetName];
+    const publishValue = transformer ? transformer(update.widgetValue) : update.widgetValue;
 
-    this.mqttClient.publish(topic, update.widgetValue, { retain: true });
+    logger.debug(`Publishing: ${topic} = ${publishValue}`);
+
+    this.mqttClient.publish(topic, publishValue, { retain: true });
 
     // Emit event for external handlers
     this.emit('widgetUpdate', update);
@@ -439,12 +460,18 @@ export class EviqoMqttGateway extends EventEmitter {
     for (const widget of dashboard.widgets) {
       for (const module of widget.modules) {
         for (const stream of module.displayDataStreams) {
-          const sensorId = normalizeTopicName(stream.name);
+          const widgetName = stream.name;
+          const sensorId = normalizeTopicName(widgetName);
           const topic = `${this.config.topicPrefix}/${device.id}/sensor/${sensorId}/state`;
 
           // Publish initial value if available from visualization
-          const value = stream.visualization.value || '0';
-          this.mqttClient.publish(topic, value, { retain: true });
+          const rawValue = stream.visualization.value || '0';
+
+          // Apply value transformer if one exists for this widget
+          const transformer = VALUE_TRANSFORMERS[widgetName];
+          const publishValue = transformer ? transformer(rawValue) : rawValue;
+
+          this.mqttClient.publish(topic, publishValue, { retain: true });
         }
       }
     }
