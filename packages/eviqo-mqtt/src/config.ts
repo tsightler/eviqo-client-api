@@ -24,15 +24,55 @@ export interface GatewayConfig {
 }
 
 /**
- * Build MQTT URL from environment
+ * Build MQTT URL from environment, replacing auto_* placeholders with
+ * discovered values from EVIQO_MQTT_HOST, EVIQO_MQTT_USER, EVIQO_MQTT_PASS
  */
 function buildMqttUrl(): string {
-  // Use EVIQO_MQTT_URL environment variable
-  if (process.env.EVIQO_MQTT_URL) {
-    return process.env.EVIQO_MQTT_URL;
+  const mqttUrl = process.env.EVIQO_MQTT_URL;
+  if (!mqttUrl) {
+    throw new Error('EVIQO_MQTT_URL environment variable is required');
   }
 
-  throw new Error('EVIQO_MQTT_URL environment variable is required');
+  // Parse the URL to handle auto_* placeholders
+  const url = new URL(mqttUrl);
+
+  // Replace auto_hostname with discovered host
+  if (url.hostname === 'auto_hostname') {
+    const host = process.env.EVIQO_MQTT_HOST;
+    if (!host) {
+      throw new Error('MQTT auto-discovery failed: EVIQO_MQTT_HOST not set');
+    }
+    url.hostname = host;
+  }
+
+  // Add port from auto-discovery if not specified and available
+  if (!url.port && process.env.EVIQO_MQTT_PORT) {
+    url.port = process.env.EVIQO_MQTT_PORT;
+  }
+
+  // Replace auto_username with discovered username
+  if (url.username === 'auto_username') {
+    const user = process.env.EVIQO_MQTT_USER;
+    if (user) {
+      url.username = user;
+    } else {
+      // No username available, remove credentials
+      url.username = '';
+      url.password = '';
+    }
+  }
+
+  // Replace auto_password with discovered password
+  if (url.password === 'auto_password' && url.username) {
+    const pass = process.env.EVIQO_MQTT_PASS;
+    if (pass) {
+      url.password = pass;
+    } else {
+      url.password = '';
+    }
+  }
+
+  return url.toString();
 }
 
 /**

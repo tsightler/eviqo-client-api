@@ -22,7 +22,11 @@ Add the repository to your Home Assistant Add-on Store:
 3. Add: `https://github.com/tsightler/eviqo`
 4. Find "Eviqo MQTT" and click **Install**
 
-The add-on supports automatic MQTT discovery when using the Mosquitto broker add-on.
+The add-on uses automatic MQTT discovery by default. The `mqtt_url` defaults to:
+```
+mqtt://auto_username:auto_password@auto_hostname
+```
+Any `auto_*` values are automatically replaced with settings from your Mosquitto broker add-on.
 
 ### Docker
 

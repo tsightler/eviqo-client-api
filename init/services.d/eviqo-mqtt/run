@@ -17,28 +17,19 @@ if bashio::supervisor.ping 2>/dev/null; then
         export EVIQO_PASSWORD=$(bashio::config "eviqo_password")
     fi
 
-    # Get MQTT URL from addon config or auto-discover
-    if bashio::config.has_value "mqtt_url" && [[ "$(bashio::config 'mqtt_url')" != "" ]]; then
-        # Manual MQTT URL provided
-        export EVIQO_MQTT_URL=$(bashio::config "mqtt_url")
-        bashio::log.info "Using configured MQTT URL"
-    elif bashio::services.available "mqtt"; then
-        # Auto-discover MQTT from Home Assistant
-        MQTT_HOST=$(bashio::services mqtt "host")
-        MQTT_PORT=$(bashio::services mqtt "port")
-        MQTT_USER=$(bashio::services mqtt "username")
-        MQTT_PASS=$(bashio::services mqtt "password")
+    # Get MQTT URL from addon config (defaults to auto-discovery URL)
+    export EVIQO_MQTT_URL=$(bashio::config "mqtt_url")
+    bashio::log.info "MQTT URL template: ${EVIQO_MQTT_URL}"
 
-        if [[ -n "${MQTT_USER}" ]] && [[ -n "${MQTT_PASS}" ]]; then
-            export EVIQO_MQTT_URL="mqtt://${MQTT_USER}:${MQTT_PASS}@${MQTT_HOST}:${MQTT_PORT}"
-        else
-            export EVIQO_MQTT_URL="mqtt://${MQTT_HOST}:${MQTT_PORT}"
-        fi
-        bashio::log.info "Using MQTT auto-discovery: ${MQTT_HOST}:${MQTT_PORT}"
+    # Set MQTT auto-discovery environment variables from HA MQTT service
+    if bashio::services.available "mqtt"; then
+        export EVIQO_MQTT_HOST=$(bashio::services mqtt "host")
+        export EVIQO_MQTT_PORT=$(bashio::services mqtt "port")
+        export EVIQO_MQTT_USER=$(bashio::services mqtt "username")
+        export EVIQO_MQTT_PASS=$(bashio::services mqtt "password")
+        bashio::log.info "MQTT service discovered: ${EVIQO_MQTT_HOST}:${EVIQO_MQTT_PORT}"
     else
-        bashio::log.error "No MQTT configuration found!"
-        bashio::log.error "Please configure mqtt_url or install the Mosquitto addon"
-        exit 1
+        bashio::log.warning "MQTT service not available for auto-discovery"
     fi
 
     # Get optional settings

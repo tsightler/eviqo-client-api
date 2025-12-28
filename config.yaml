@@ -18,12 +18,12 @@ services:
 options:
   eviqo_email: ""
   eviqo_password: ""
-  mqtt_url: ""
+  mqtt_url: "mqtt://auto_username:auto_password@auto_hostname"
   debug: false
 schema:
   eviqo_email: email
   eviqo_password: password
-  mqtt_url: url?
+  mqtt_url: str?
   debug: bool?
 image: ghcr.io/tsightler/eviqo-mqtt-{arch}
 init: false

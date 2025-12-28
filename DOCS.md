@@ -31,17 +31,31 @@ This addon bridges your Eviqo EV charger to MQTT, enabling seamless integration 
 
 ### MQTT Settings
 
-The addon supports two MQTT configuration methods:
+The addon supports automatic MQTT discovery using special `auto_*` placeholders in the URL.
 
-#### Auto-Discovery (Recommended)
-If you have the Mosquitto broker addon installed, MQTT settings will be automatically discovered. Just leave the `mqtt_url` field empty.
+#### Auto-Discovery (Default)
+The default `mqtt_url` is:
+```
+mqtt://auto_username:auto_password@auto_hostname
+```
+
+When the addon starts, any `auto_*` values are automatically replaced with the MQTT broker settings discovered from Home Assistant's Mosquitto addon:
+- `auto_hostname` → Discovered MQTT host
+- `auto_username` → Discovered MQTT username
+- `auto_password` → Discovered MQTT password
 
 #### Manual Configuration
-If using an external MQTT broker, configure:
+If using an external MQTT broker, replace the auto values with your broker details:
 - **mqtt_url**: Full MQTT broker URL
   - Format: `mqtt://host:port` or `mqtt://user:pass@host:port`
   - Example: `mqtt://192.168.1.100:1883`
   - With auth: `mqtt://myuser:mypass@192.168.1.100:1883`
+
+#### Mixed Mode
+You can mix auto and manual values. For example, to use auto-discovered credentials with a custom host:
+```
+mqtt://auto_username:auto_password@192.168.1.100:1883
+```
 
 ### Eviqo Credentials
 
