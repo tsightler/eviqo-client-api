@@ -37,7 +37,7 @@ function normalizeTopicName(name: string): string {
  * Maps widget name to a function that transforms the raw value
  */
 const VALUE_TRANSFORMERS: Record<string, (value: string) => string> = {
-  State: (value: string) => {
+  Status: (value: string) => {
     const stateMap: Record<string, string> = {
       '0': 'unplugged',
       '1': 'plugged',
@@ -395,8 +395,8 @@ export class EviqoMqttGateway extends EventEmitter {
     const transformer = VALUE_TRANSFORMERS[widgetName];
     const publishValue = transformer ? transformer(rawValue) : rawValue;
 
-    // State values should not be retained (they're transient)
-    const shouldRetain = widgetName !== 'State';
+    // Status values should not be retained (they're transient)
+    const shouldRetain = widgetName !== 'Status';
 
     logger.debug(`Publishing: ${topic} = ${publishValue}`);
 
