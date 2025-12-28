@@ -56,6 +56,8 @@ export class EviqoWebsocketConnection extends EventEmitter {
   private widgetIdMap: Map<number, Map<string, DisplayDataStream>> = new Map();
   private widgetNameMap: Map<number, Map<string, DisplayDataStream>> =
     new Map();
+  // Map from pin number to widget stream (for widget update lookup)
+  private widgetPinMap: Map<number, Map<string, DisplayDataStream>> = new Map();
   private keepaliveTimer: Date = new Date();
 
   constructor(
@@ -347,6 +349,12 @@ export class EviqoWebsocketConnection extends EventEmitter {
       this.widgetNameMap.set(deviceIdx, deviceWidgetNameMap);
     }
 
+    let deviceWidgetPinMap = this.widgetPinMap.get(deviceIdx);
+    if (!deviceWidgetPinMap) {
+      deviceWidgetPinMap = new Map<string, DisplayDataStream>();
+      this.widgetPinMap.set(deviceIdx, deviceWidgetPinMap);
+    }
+
     for (const widget of widgets) {
       const modules = widget.modules;
       for (const module of modules) {
@@ -354,6 +362,7 @@ export class EviqoWebsocketConnection extends EventEmitter {
         for (const stream of displayDataStreams) {
           deviceWidgetIdMap.set(String(stream.id), stream);
           deviceWidgetNameMap.set(stream.name, stream);
+          deviceWidgetPinMap.set(String(stream.pin), stream);
         }
       }
     }
@@ -381,13 +390,14 @@ export class EviqoWebsocketConnection extends EventEmitter {
    * @param payload - Parsed widget update payload from protocol
    */
   private handleWidgetUpdate(payload: Record<string, unknown>): void {
-    const { widgetId, deviceId, widgetValue } = payload as {
+    // Note: widgetId in the message is actually the pin number
+    const { widgetId: pin, deviceId, widgetValue } = payload as {
       widgetId: string;
       deviceId: string;
       widgetValue: string;
     };
 
-    if (!widgetId || !deviceId) {
+    if (!pin || !deviceId) {
       logger.debug('Widget update missing required fields');
       return;
     }
@@ -406,15 +416,16 @@ export class EviqoWebsocketConnection extends EventEmitter {
       return;
     }
 
-    const deviceWidgetIdMap = this.widgetIdMap.get(deviceIdx);
-    if (!deviceWidgetIdMap) {
-      logger.debug(`No widget map for device index ${deviceIdx}`);
+    // Look up widget by pin number (the message contains pin, not widget id)
+    const deviceWidgetPinMap = this.widgetPinMap.get(deviceIdx);
+    if (!deviceWidgetPinMap) {
+      logger.debug(`No widget pin map for device index ${deviceIdx}`);
       return;
     }
 
-    const widgetStream = deviceWidgetIdMap.get(widgetId);
+    const widgetStream = deviceWidgetPinMap.get(pin);
     if (!widgetStream) {
-      logger.debug(`Unknown widget ID: ${widgetId}`);
+      logger.debug(`Unknown pin: ${pin}`);
       return;
     }
 
@@ -423,7 +434,7 @@ export class EviqoWebsocketConnection extends EventEmitter {
     );
 
     this.emit('widgetUpdate', {
-      widgetId,
+      widgetId: pin,
       widgetStream,
       deviceId,
       widgetValue,
