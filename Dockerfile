@@ -71,7 +71,7 @@ COPY --from=builder /app/package*.json ./
 
 # Copy init scripts
 COPY init/services.d/ /etc/services.d/
-RUN chmod +x /etc/services.d/*/run
+RUN chmod +x /etc/services.d/*/run /etc/services.d/*/finish
 
 # Labels
 LABEL \
