@@ -1,0 +1,72 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Eviqo MQTT Service Startup Script
+# ==============================================================================
+
+# Detect if running as Home Assistant addon
+if bashio::supervisor.ping 2>/dev/null; then
+    bashio::log.info "Detected Home Assistant Addon environment"
+    export RUNMODE="addon"
+
+    # Get Eviqo credentials from addon config
+    if bashio::config.has_value "eviqo_email"; then
+        export EVIQO_EMAIL=$(bashio::config "eviqo_email")
+    fi
+    if bashio::config.has_value "eviqo_password"; then
+        export EVIQO_PASSWORD=$(bashio::config "eviqo_password")
+    fi
+
+    # Get MQTT URL from addon config (defaults to auto-discovery URL)
+    export EVIQO_MQTT_URL=$(bashio::config "mqtt_url")
+    bashio::log.info "MQTT URL template: ${EVIQO_MQTT_URL}"
+
+    # Set MQTT auto-discovery environment variables from HA MQTT service
+    if bashio::services.available "mqtt"; then
+        export EVIQO_MQTT_HOST=$(bashio::services mqtt "host")
+        export EVIQO_MQTT_PORT=$(bashio::services mqtt "port")
+        export EVIQO_MQTT_USER=$(bashio::services mqtt "username")
+        export EVIQO_MQTT_PASS=$(bashio::services mqtt "password")
+        bashio::log.info "MQTT service discovered: ${EVIQO_MQTT_HOST}:${EVIQO_MQTT_PORT}"
+    else
+        bashio::log.warning "MQTT service not available for auto-discovery"
+    fi
+
+    # Get optional settings
+    if bashio::config.true "debug"; then
+        export EVIQO_LOG_LEVEL="debug"
+    fi
+
+else
+    bashio::log.info "Running in standalone Docker mode"
+    export RUNMODE="docker"
+
+    # In Docker mode, all config comes from environment variables
+    # Validate required environment variables
+    if [[ -z "${EVIQO_EMAIL:-}" ]]; then
+        bashio::log.error "EVIQO_EMAIL environment variable is required"
+        exit 1
+    fi
+    if [[ -z "${EVIQO_PASSWORD:-}" ]]; then
+        bashio::log.error "EVIQO_PASSWORD environment variable is required"
+        exit 1
+    fi
+    if [[ -z "${EVIQO_MQTT_URL:-}" ]]; then
+        bashio::log.error "EVIQO_MQTT_URL environment variable is required"
+        exit 1
+    fi
+fi
+
+# Display startup information
+bashio::log.info "========================================"
+bashio::log.info " Eviqo MQTT Gateway"
+bashio::log.info "========================================"
+bashio::log.info "Mode:       ${RUNMODE}"
+bashio::log.info "Node.js:    $(node --version)"
+bashio::log.info "========================================"
+
+# Change to application directory
+cd /app/eviqo-mqtt/packages/eviqo-mqtt || exit 1
+
+# Start the application
+exec node dist/cli.js

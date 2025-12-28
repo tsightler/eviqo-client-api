@@ -1,0 +1,26 @@
+{
+  "name": "eviqo-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eviqo EV Charger client API and MQTT gateway monorepo",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "build:client": "npm run build -w eviqo-client-api",
+    "build:mqtt": "npm run build -w eviqo-mqtt",
+    "test": "npm test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "clean": "rm -rf packages/*/dist packages/*/node_modules node_modules"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tsightler/eviqo-client-api.git"
+  },
+  "author": "Zach <zach@smamily.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Node modules (will be installed fresh in container)
+node_modules
+packages/*/node_modules
+
+# Build outputs (will be built fresh in container)
+packages/*/dist
+
+# Development files
+*.md
+*.log
+.env
+.env.*
+.vscode
+.idea
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__
+coverage
+
+# OS files
+.DS_Store
+Thumbs.db
