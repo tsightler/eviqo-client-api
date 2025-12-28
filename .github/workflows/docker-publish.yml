@@ -46,7 +46,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
-        if: github.event_name != 'pull_request'
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -69,7 +69,7 @@ jobs:
         with:
           context: .
           platforms: ${{ matrix.platform }}
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
@@ -81,7 +81,7 @@ jobs:
   manifest:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
+    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       packages: write
 
@@ -93,23 +93,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create and push manifest (latest)
-        if: github.ref == 'refs/heads/main'
-        run: |
-          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-amd64:latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-aarch64:latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-armv7:latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-armhf:latest
-          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-      - name: Create and push manifest (version tag)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Create and push manifests
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
+
+          # Create versioned manifest
           docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION} \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-amd64:${VERSION} \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-aarch64:${VERSION} \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-armv7:${VERSION} \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-armhf:${VERSION}
           docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}
+
+          # Also tag as latest
+          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-amd64:${VERSION} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-aarch64:${VERSION} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-armv7:${VERSION} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-armhf:${VERSION}
+          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
