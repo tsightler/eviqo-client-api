@@ -297,8 +297,8 @@ export class EviqoMqttGateway extends EventEmitter {
           const controlSettings = CONTROLLABLE_WIDGETS[stream.name];
           if (controlSettings) {
             const entityId = getTopicId(stream.name);
-            const commandTopic = `${this.config.topicPrefix}/${device.id}/sensor/${entityId}/set`;
-            const stateTopic = `${this.config.topicPrefix}/${device.id}/sensor/${entityId}/state`;
+            const commandTopic = `${this.config.topicPrefix}/${device.id}/${entityId}/set`;
+            const stateTopic = `${this.config.topicPrefix}/${device.id}/${entityId}/state`;
 
             // Store mapping for handling commands
             this.commandTopicMap.set(commandTopic, {
@@ -387,7 +387,7 @@ export class EviqoMqttGateway extends EventEmitter {
     const publishValue = transformer ? transformer(rawValue) : rawValue;
 
     const sensorId = getTopicId(widgetName);
-    const topic = `${this.config.topicPrefix}/${deviceId}/sensor/${sensorId}/state`;
+    const topic = `${this.config.topicPrefix}/${deviceId}/${sensorId}/state`;
 
     // Status values should not be retained (they're transient)
     const shouldRetain = widgetName !== 'Status';
@@ -488,7 +488,7 @@ export class EviqoMqttGateway extends EventEmitter {
     this.mqttClient.publish(statusTopic, 'online', { retain: true });
 
     // Publish connectivity binary sensor
-    const connectivityTopic = `${this.config.topicPrefix}/${device.id}/binary_sensor/connectivity/state`;
+    const connectivityTopic = `${this.config.topicPrefix}/${device.id}/connectivity/state`;
     this.mqttClient.publish(connectivityTopic, 'ON', { retain: true });
   }
 
@@ -502,7 +502,7 @@ export class EviqoMqttGateway extends EventEmitter {
     this.mqttClient.publish(statusTopic, 'offline', { retain: true });
 
     // Update connectivity binary sensor
-    const connectivityTopic = `${this.config.topicPrefix}/${device.id}/binary_sensor/connectivity/state`;
+    const connectivityTopic = `${this.config.topicPrefix}/${device.id}/connectivity/state`;
     this.mqttClient.publish(connectivityTopic, 'OFF', { retain: true });
   }
 

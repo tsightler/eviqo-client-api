@@ -80,7 +80,7 @@ export const WIDGET_MAPPINGS: Record<string, WidgetMapping> = {
   // Session
   'Session duration': { icon: 'mdi:timer' },
   'Session power': { device_class: 'energy', unit: 'kWh', state_class: 'total_increasing' },
-  'Session cost': { device_class: 'monetary', icon: 'mdi:currency-usd' },
+  'Session cost': { icon: 'mdi:currency-usd', unit: '€' },
 
   // Status
   'Status': { icon: 'mdi:ev-station' },
@@ -147,7 +147,7 @@ export function createSensorConfig(
   const config: HaEntityConfig = {
     name: stream.name,
     unique_id: uniqueId,
-    state_topic: `${topicPrefix}/${device.id}/sensor/${sensorId}/state`,
+    state_topic: `${topicPrefix}/${device.id}/${sensorId}/state`,
     device: createDeviceInfo(device),
     availability_topic: `${topicPrefix}/${device.id}/status`,
     payload_available: 'online',
@@ -189,7 +189,7 @@ export function createBinarySensorConfig(
   const config: HaEntityConfig = {
     name,
     unique_id: uniqueId,
-    state_topic: `${topicPrefix}/${device.id}/binary_sensor/${sensorId}/state`,
+    state_topic: `${topicPrefix}/${device.id}/${sensorId}/state`,
     device: createDeviceInfo(device),
     availability_topic: `${topicPrefix}/${device.id}/status`,
     payload_available: 'online',
@@ -235,8 +235,8 @@ export function createNumberConfig(
   const config: HaEntityConfig = {
     name: `${name} Limit`,
     unique_id: uniqueId,
-    state_topic: `${topicPrefix}/${device.id}/sensor/${entityId}/state`,
-    command_topic: `${topicPrefix}/${device.id}/sensor/${entityId}/set`,
+    state_topic: `${topicPrefix}/${device.id}/${entityId}/state`,
+    command_topic: `${topicPrefix}/${device.id}/${entityId}/set`,
     device: createDeviceInfo(device),
     availability_topic: `${topicPrefix}/${device.id}/status`,
     payload_available: 'online',
