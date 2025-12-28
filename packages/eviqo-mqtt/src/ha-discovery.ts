@@ -53,7 +53,6 @@ interface WidgetMapping {
   state_class?: string;
   icon?: string;
   topic_id?: string;  // Custom topic name (defaults to normalized widget name)
-  group?: string;     // Group widgets into a single JSON topic
 }
 
 /**
@@ -78,10 +77,10 @@ export const WIDGET_MAPPINGS: Record<string, WidgetMapping> = {
   'Temperature': { device_class: 'temperature', unit: '°C', state_class: 'measurement' },
   'Charger Temperature': { device_class: 'temperature', unit: '°C', state_class: 'measurement' },
 
-  // Session (grouped into single JSON topic)
-  'Session duration': { icon: 'mdi:timer', group: 'session' },
-  'Session power': { device_class: 'energy', unit: 'kWh', state_class: 'total_increasing', group: 'session' },
-  'Session cost': { device_class: 'monetary', icon: 'mdi:currency-usd', group: 'session' },
+  // Session
+  'Session duration': { icon: 'mdi:timer' },
+  'Session power': { device_class: 'energy', unit: 'kWh', state_class: 'total_increasing' },
+  'Session cost': { device_class: 'monetary', icon: 'mdi:currency-usd' },
 
   // Status
   'Status': { icon: 'mdi:ev-station' },
@@ -110,28 +109,6 @@ function normalizeTopicName(name: string): string {
 export function getTopicId(widgetName: string): string {
   const mapping = WIDGET_MAPPINGS[widgetName];
   return mapping?.topic_id || normalizeTopicName(widgetName);
-}
-
-/**
- * Check if a widget is part of a group
- */
-export function getWidgetGroup(widgetName: string): string | undefined {
-  return WIDGET_MAPPINGS[widgetName]?.group;
-}
-
-/**
- * Get the JSON key for a grouped widget (e.g., "Session duration" -> "duration")
- */
-export function getGroupKey(widgetName: string): string {
-  // Remove the group prefix (e.g., "Session duration" -> "duration")
-  const group = getWidgetGroup(widgetName);
-  if (group) {
-    const prefix = group.charAt(0).toUpperCase() + group.slice(1) + ' ';
-    if (widgetName.startsWith(prefix)) {
-      return widgetName.slice(prefix.length).toLowerCase();
-    }
-  }
-  return normalizeTopicName(widgetName);
 }
 
 /**
@@ -191,34 +168,6 @@ export function createSensorConfig(
   }
 
   const topic = `${discoveryPrefix}/sensor/${deviceId}/${sensorId}/config`;
-
-  return { topic, payload: config };
-}
-
-/**
- * Create Home Assistant sensor config for a grouped topic (e.g., session)
- */
-export function createGroupedSensorConfig(
-  discoveryPrefix: string,
-  topicPrefix: string,
-  device: EviqoDevicePageModel,
-  group: string
-): { topic: string; payload: HaEntityConfig } {
-  const deviceId = `eviqo_${device.id}`;
-  const uniqueId = `${deviceId}_${group}`;
-
-  const config: HaEntityConfig = {
-    name: group.charAt(0).toUpperCase() + group.slice(1),
-    unique_id: uniqueId,
-    state_topic: `${topicPrefix}/${device.id}/sensor/${group}/state`,
-    device: createDeviceInfo(device),
-    availability_topic: `${topicPrefix}/${device.id}/status`,
-    payload_available: 'online',
-    payload_not_available: 'offline',
-    icon: 'mdi:ev-station',
-  };
-
-  const topic = `${discoveryPrefix}/sensor/${deviceId}/${group}/config`;
 
   return { topic, payload: config };
 }
@@ -330,33 +279,12 @@ export async function publishDeviceDiscovery(
   }
   logger.info(`Available widgets: ${allWidgetNames.join(', ')}`);
 
-  // Track groups we've seen
-  const publishedGroups = new Set<string>();
-
   // Publish sensor configs for each widget stream
   for (const widget of dashboard.widgets) {
     for (const module of widget.modules) {
       for (const stream of module.displayDataStreams) {
         // Only publish widgets that have a mapping defined
         if (!(stream.name in WIDGET_MAPPINGS)) continue;
-
-        // Check if this widget is part of a group
-        const group = getWidgetGroup(stream.name);
-        if (group) {
-          // Publish grouped sensor once per group
-          if (!publishedGroups.has(group)) {
-            publishedGroups.add(group);
-            const groupConfig = createGroupedSensorConfig(
-              discoveryPrefix,
-              topicPrefix,
-              device,
-              group
-            );
-            logger.info(`Publishing grouped sensor: ${groupConfig.topic}`);
-            await publishRetained(mqttClient, groupConfig.topic, JSON.stringify(groupConfig.payload));
-          }
-          continue;
-        }
 
         const { topic, payload } = createSensorConfig(
           discoveryPrefix,
