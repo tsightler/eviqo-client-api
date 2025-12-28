@@ -519,6 +519,14 @@ export class EviqoWebsocketConnection extends EventEmitter {
       logger.info(`Outbound hex: ${message.toString('hex')}`);
 
       this.ws.send(message);
+
+      // Emit commandSent event so listeners can update state immediately
+      this.emit('commandSent', {
+        deviceId,
+        pin,
+        value,
+        time: new Date(),
+      });
     } catch (error) {
       logger.error(`Error sending command: ${error}`);
     }

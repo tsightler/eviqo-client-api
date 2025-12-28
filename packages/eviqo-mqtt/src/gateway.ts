@@ -52,6 +52,8 @@ export class EviqoMqttGateway extends EventEmitter {
   // Map command topics to device/pin info for handling MQTT commands
   private commandTopicMap: Map<string, { deviceId: string; pin: string }> =
     new Map();
+  // Reverse map from deviceId:pin to state topic for updating state after commands
+  private pinToStateTopicMap: Map<string, string> = new Map();
 
   constructor(config: GatewayConfig) {
     super();
@@ -214,6 +216,11 @@ export class EviqoMqttGateway extends EventEmitter {
       this.handleWidgetUpdate(update);
     });
 
+    // Set up command sent handler to update state immediately
+    this.eviqoClient.on('commandSent', (command: { deviceId: string; pin: string; value: string }) => {
+      this.handleCommandSent(command);
+    });
+
     // Connect and authenticate
     if (!(await this.eviqoClient.connect())) {
       throw new Error('Failed to connect to Eviqo API');
@@ -283,12 +290,17 @@ export class EviqoMqttGateway extends EventEmitter {
           if (controlSettings) {
             const entityId = normalizeTopicName(stream.name);
             const commandTopic = `${this.config.topicPrefix}/${device.id}/sensor/${entityId}/set`;
+            const stateTopic = `${this.config.topicPrefix}/${device.id}/sensor/${entityId}/state`;
 
             // Store mapping for handling commands
             this.commandTopicMap.set(commandTopic, {
               deviceId: String(device.id),
               pin: controlSettings.pin,
             });
+
+            // Store reverse mapping for updating state after command sent
+            const pinKey = `${device.id}:${controlSettings.pin}`;
+            this.pinToStateTopicMap.set(pinKey, stateTopic);
 
             // Subscribe to the command topic
             this.mqttClient.subscribe(commandTopic, (err) => {
@@ -396,6 +408,24 @@ export class EviqoMqttGateway extends EventEmitter {
     } catch (error) {
       logger.error(`Failed to send command: ${error}`);
     }
+  }
+
+  /**
+   * Handle command sent event - update MQTT state immediately
+   */
+  private handleCommandSent(command: { deviceId: string; pin: string; value: string }): void {
+    if (!this.mqttClient || !this.mqttClient.connected) return;
+
+    const pinKey = `${command.deviceId}:${command.pin}`;
+    const stateTopic = this.pinToStateTopicMap.get(pinKey);
+
+    if (!stateTopic) {
+      logger.debug(`No state topic mapping for ${pinKey}`);
+      return;
+    }
+
+    logger.info(`Updating state after command: ${stateTopic} = ${command.value}`);
+    this.mqttClient.publish(stateTopic, command.value, { retain: true });
   }
 
   /**
