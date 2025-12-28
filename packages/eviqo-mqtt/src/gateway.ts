@@ -372,6 +372,7 @@ export class EviqoMqttGateway extends EventEmitter {
    * Publish a widget value to MQTT
    *
    * Handles topic construction, value transformation, and retain logic.
+   * Publishes values for widgets in WIDGET_MAPPINGS (sensors) or CONTROLLABLE_WIDGETS (number entities).
    * @param retain - Whether to retain the message (defaults to false for updates, true for initial values)
    */
   private publishWidgetValue(
@@ -381,14 +382,20 @@ export class EviqoMqttGateway extends EventEmitter {
     retain = false
   ): void {
     if (!this.mqttClient || !this.mqttClient.connected) return;
+
+    // Check if this widget is a sensor (in WIDGET_MAPPINGS) or controllable (in CONTROLLABLE_WIDGETS)
+    const isInWidgetMappings = widgetName in WIDGET_MAPPINGS;
+    const controlSettings = CONTROLLABLE_WIDGETS[widgetName];
+
     // Only publish widgets that have a mapping defined
-    if (!(widgetName in WIDGET_MAPPINGS)) return;
+    if (!isInWidgetMappings && !controlSettings) return;
 
     // Apply value transformer if one exists for this widget
     const transformer = VALUE_TRANSFORMERS[widgetName];
     const publishValue = transformer ? transformer(rawValue) : rawValue;
 
-    const sensorId = getTopicId(widgetName);
+    // Use topic_id from CONTROLLABLE_WIDGETS if available, otherwise use getTopicId
+    const sensorId = controlSettings?.topic_id || getTopicId(widgetName);
     const topic = `${this.config.topicPrefix}/${deviceId}/${sensorId}/state`;
 
     logger.debug(`Publishing: ${topic} = ${publishValue} (retain=${retain})`);
