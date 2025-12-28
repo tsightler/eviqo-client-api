@@ -1,5 +1,5 @@
 # Build stage - always run natively (JS is platform-independent)
-FROM --platform=$BUILDPLATFORM node:20-alpine AS builder
+FROM --platform=$BUILDPLATFORM node:jod-alpine AS builder
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN npm run build
 RUN npm prune --omit=dev
 
 # Runtime stage
-FROM node:20-alpine
+FROM node:jod-alpine
 
 # Build arguments
 ARG BUILD_ARCH=amd64
