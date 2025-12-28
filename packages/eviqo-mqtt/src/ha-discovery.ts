@@ -191,9 +191,9 @@ export function createBinarySensorConfig(
  */
 export const CONTROLLABLE_WIDGETS: Record<
   string,
-  { pin: string; min: number; max: number; step: number; mode: string; icon?: string }
+  { pin: string; min: number; step: number; mode: string; icon?: string }
 > = {
-  Current: { pin: '3', min: 6, max: 32, step: 1, mode: 'slider', icon: 'mdi:current-ac' },
+  Current: { pin: '3', min: 6, step: 1, mode: 'slider', icon: 'mdi:current-ac' },
 };
 
 /**
@@ -204,7 +204,7 @@ export function createNumberConfig(
   topicPrefix: string,
   device: EviqoDevicePageModel,
   name: string,
-  settings: { pin: string; min: number; max: number; step: number; mode: string; icon?: string }
+  settings: { pin: string; min: number; step: number; mode: string; icon?: string }
 ): { topic: string; payload: HaEntityConfig } {
   const deviceId = `eviqo_${device.id}`;
   const entityId = normalizeTopicName(name);
@@ -220,7 +220,6 @@ export function createNumberConfig(
     payload_available: 'online',
     payload_not_available: 'offline',
     min: settings.min,
-    max: settings.max,
     step: settings.step,
     mode: settings.mode,
     unit_of_measurement: 'A',

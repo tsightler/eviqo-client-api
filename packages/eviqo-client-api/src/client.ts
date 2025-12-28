@@ -527,7 +527,7 @@ export class EviqoWebsocketConnection extends EventEmitter {
       logger.info(
         `SENDING COMMAND: device=${deviceId} pin=${pin} value=${value} [msgId=${msgId}, counter=${this.messageCounter}]`
       );
-      logger.info(`Outbound hex: ${message.toString('hex')}`);
+      logger.debug(`Outbound hex: ${message.toString('hex')}`);
 
       this.ws.send(message);
 
@@ -579,7 +579,7 @@ export class EviqoWebsocketConnection extends EventEmitter {
 
       const message = createBinaryMessage(payload, byte1, byte2, byte3, actualByte4);
       logger.info(`SENDING ${description} [byte4=${actualByte4}, counter=${this.messageCounter}]`);
-      logger.info(`Outbound hex: ${message.toString('hex')}`);
+      logger.debug(`Outbound hex: ${message.toString('hex')}`);
       this.ws.send(message);
     } catch (error) {
       logger.error(`Error sending message: ${error}`);
