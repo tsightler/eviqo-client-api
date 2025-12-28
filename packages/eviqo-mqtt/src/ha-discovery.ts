@@ -212,6 +212,42 @@ export function createBinarySensorConfig(
 }
 
 /**
+ * Create Home Assistant switch discovery config
+ */
+export function createSwitchConfig(
+  discoveryPrefix: string,
+  topicPrefix: string,
+  device: EviqoDevicePageModel,
+  name: string,
+  icon?: string
+): { topic: string; payload: HaEntityConfig } {
+  const deviceId = `eviqo_${device.id}`;
+  const switchId = normalizeTopicName(name);
+  const uniqueId = `${deviceId}_${switchId}`;
+
+  const config: HaEntityConfig = {
+    name,
+    unique_id: uniqueId,
+    state_topic: `${topicPrefix}/${device.id}/${switchId}/state`,
+    command_topic: `${topicPrefix}/${device.id}/${switchId}/set`,
+    device: createDeviceInfo(device),
+    availability_topic: `${topicPrefix}/${device.id}/status`,
+    payload_available: 'online',
+    payload_not_available: 'offline',
+    payload_on: 'ON',
+    payload_off: 'OFF',
+  };
+
+  if (icon) {
+    config.icon = icon;
+  }
+
+  const topic = `${discoveryPrefix}/switch/${deviceId}/${switchId}/config`;
+
+  return { topic, payload: config };
+}
+
+/**
  * Controllable widget pin mappings
  * Maps widget names to their control pins and settings
  */
@@ -361,13 +397,13 @@ export async function publishDeviceDiscovery(
   );
   await publishRetained(mqttClient, connectivityConfig.topic, JSON.stringify(connectivityConfig.payload));
 
-  // Publish charging binary sensor
-  const chargingConfig = createBinarySensorConfig(
+  // Publish charging switch
+  const chargingConfig = createSwitchConfig(
     discoveryPrefix,
     topicPrefix,
     device,
     'Charging',
-    'battery_charging'
+    'mdi:ev-station'
   );
   await publishRetained(mqttClient, chargingConfig.topic, JSON.stringify(chargingConfig.payload));
 }
@@ -401,11 +437,21 @@ export async function removeDeviceDiscovery(
   }
 
   // Remove binary sensor configs
-  const binarySensors = ['connectivity', 'charging'];
+  const binarySensors = ['connectivity'];
   for (const sensorId of binarySensors) {
     const topic = `${discoveryPrefix}/binary_sensor/${deviceId}/${sensorId}/config`;
     await publishRetained(mqttClient, topic, '');
   }
+
+  // Remove switch configs
+  const switches = ['charging'];
+  for (const switchId of switches) {
+    const topic = `${discoveryPrefix}/switch/${deviceId}/${switchId}/config`;
+    await publishRetained(mqttClient, topic, '');
+  }
+
+  // Also remove old binary sensor config for charging (in case upgrading from old version)
+  await publishRetained(mqttClient, `${discoveryPrefix}/binary_sensor/${deviceId}/charging/config`, '');
 }
 
 /**

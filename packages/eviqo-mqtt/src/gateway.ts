@@ -62,6 +62,10 @@ export class EviqoMqttGateway extends EventEmitter {
     new Map();
   // Reverse map from deviceId:pin to state topic for updating state after commands
   private pinToStateTopicMap: Map<string, string> = new Map();
+  // Track current status per device (0=unplugged, 1=plugged, 2=charging, 3=stopped)
+  private deviceStatus: Map<string, string> = new Map();
+  // Map charging command topics to device IDs
+  private chargingCommandTopicMap: Map<string, string> = new Map();
 
   constructor(config: GatewayConfig) {
     super();
@@ -282,7 +286,7 @@ export class EviqoMqttGateway extends EventEmitter {
   }
 
   /**
-   * Subscribe to command topics for controllable widgets
+   * Subscribe to command topics for controllable widgets and switches
    */
   private async subscribeToCommandTopics(
     device: EviqoDevicePageModel
@@ -322,6 +326,17 @@ export class EviqoMqttGateway extends EventEmitter {
         }
       }
     }
+
+    // Subscribe to charging switch command topic
+    const chargingCommandTopic = `${this.config.topicPrefix}/${device.id}/charging/set`;
+    this.chargingCommandTopicMap.set(chargingCommandTopic, String(device.id));
+    this.mqttClient.subscribe(chargingCommandTopic, (err) => {
+      if (err) {
+        logger.error(`Failed to subscribe to ${chargingCommandTopic}: ${err}`);
+      } else {
+        logger.info(`Subscribed to charging command topic: ${chargingCommandTopic}`);
+      }
+    });
   }
 
   /**
@@ -402,8 +417,11 @@ export class EviqoMqttGateway extends EventEmitter {
 
     this.mqttClient.publish(topic, publishValue, { retain });
 
-    // If this is Status, also update the charging binary sensor
+    // If this is Status, track the status and update the charging switch
     if (widgetName === 'Status') {
+      // Track status for charging control logic
+      this.deviceStatus.set(String(deviceId), rawValue);
+
       const chargingTopic = `${this.config.topicPrefix}/${deviceId}/charging/state`;
       const isCharging = rawValue === '2'; // 2 = charging
       this.mqttClient.publish(chargingTopic, isCharging ? 'ON' : 'OFF', { retain });
@@ -430,15 +448,22 @@ export class EviqoMqttGateway extends EventEmitter {
   private async handleMqttMessage(topic: string, message: string): Promise<void> {
     logger.debug(`Received MQTT message on ${topic}: ${message}`);
 
-    // Check if this is a command topic we're tracking
-    const commandInfo = this.commandTopicMap.get(topic);
-    if (!commandInfo) {
-      logger.debug(`Unknown command topic: ${topic}`);
+    if (!this.eviqoClient) {
+      logger.error('Cannot send command: Eviqo client not connected');
       return;
     }
 
-    if (!this.eviqoClient) {
-      logger.error('Cannot send command: Eviqo client not connected');
+    // Check if this is a charging command
+    const chargingDeviceId = this.chargingCommandTopicMap.get(topic);
+    if (chargingDeviceId) {
+      await this.handleChargingCommand(chargingDeviceId, message.trim());
+      return;
+    }
+
+    // Check if this is a controllable widget command
+    const commandInfo = this.commandTopicMap.get(topic);
+    if (!commandInfo) {
+      logger.debug(`Unknown command topic: ${topic}`);
       return;
     }
 
@@ -454,6 +479,62 @@ export class EviqoMqttGateway extends EventEmitter {
       logger.info(`Command sent successfully`);
     } catch (error) {
       logger.error(`Failed to send command: ${error}`);
+    }
+  }
+
+  /**
+   * Handle charging switch command (ON/OFF)
+   *
+   * Command sequences based on current status:
+   * - To STOP (status=2 charging): send 3 (stop), then 0
+   * - To START (status=1 plugged): send 2 (start), then 0
+   * - To START (status=3 stopped): send 1, then 0, wait 250ms, send 2, then 0
+   */
+  private async handleChargingCommand(deviceId: string, command: string): Promise<void> {
+    const currentStatus = this.deviceStatus.get(deviceId);
+    const chargingPin = '15'; // Pin for charging control
+
+    logger.info(`Charging command: ${command} for device ${deviceId} (current status: ${currentStatus})`);
+
+    try {
+      if (command === 'OFF') {
+        // Stop charging - only valid if currently charging (status=2)
+        if (currentStatus !== '2') {
+          logger.warn(`Cannot stop charging: device ${deviceId} is not charging (status=${currentStatus})`);
+          return;
+        }
+        await this.eviqoClient!.sendCommand(deviceId, chargingPin, '3');
+        await this.eviqoClient!.sendCommand(deviceId, chargingPin, '0');
+        logger.info(`Charging stopped for device ${deviceId}`);
+      } else if (command === 'ON') {
+        // Start charging - depends on current status
+        if (currentStatus === '0') {
+          logger.warn(`Cannot start charging: device ${deviceId} is unplugged`);
+          return;
+        } else if (currentStatus === '2') {
+          logger.info(`Device ${deviceId} is already charging`);
+          return;
+        } else if (currentStatus === '1') {
+          // Plugged - send start command
+          await this.eviqoClient!.sendCommand(deviceId, chargingPin, '2');
+          await this.eviqoClient!.sendCommand(deviceId, chargingPin, '0');
+          logger.info(`Charging started for device ${deviceId}`);
+        } else if (currentStatus === '3') {
+          // Stopped - need to unlock then start
+          await this.eviqoClient!.sendCommand(deviceId, chargingPin, '1');
+          await this.eviqoClient!.sendCommand(deviceId, chargingPin, '0');
+          await new Promise(resolve => setTimeout(resolve, 250));
+          await this.eviqoClient!.sendCommand(deviceId, chargingPin, '2');
+          await this.eviqoClient!.sendCommand(deviceId, chargingPin, '0');
+          logger.info(`Charging started for device ${deviceId} (from stopped state)`);
+        } else {
+          logger.warn(`Unknown status ${currentStatus} for device ${deviceId}`);
+        }
+      } else {
+        logger.warn(`Unknown charging command: ${command}`);
+      }
+    } catch (error) {
+      logger.error(`Failed to send charging command: ${error}`);
     }
   }
 
