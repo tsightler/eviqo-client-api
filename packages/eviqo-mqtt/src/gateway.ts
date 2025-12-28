@@ -377,18 +377,23 @@ export class EviqoMqttGateway extends EventEmitter {
   }
 
   /**
-   * Handle widget update from Eviqo
+   * Publish a widget value to MQTT
+   *
+   * Handles topic construction, value transformation, and retain logic.
    */
-  private async handleWidgetUpdate(update: WidgetUpdate): Promise<void> {
+  private publishWidgetValue(
+    deviceId: string | number,
+    widgetName: string,
+    rawValue: string
+  ): void {
     if (!this.mqttClient || !this.mqttClient.connected) return;
 
-    const widgetName = update.widgetStream.name;
     const sensorId = normalizeTopicName(widgetName);
-    const topic = `${this.config.topicPrefix}/${update.deviceId}/sensor/${sensorId}/state`;
+    const topic = `${this.config.topicPrefix}/${deviceId}/sensor/${sensorId}/state`;
 
     // Apply value transformer if one exists for this widget
     const transformer = VALUE_TRANSFORMERS[widgetName];
-    const publishValue = transformer ? transformer(update.widgetValue) : update.widgetValue;
+    const publishValue = transformer ? transformer(rawValue) : rawValue;
 
     // State values should not be retained (they're transient)
     const shouldRetain = widgetName !== 'State';
@@ -396,6 +401,17 @@ export class EviqoMqttGateway extends EventEmitter {
     logger.debug(`Publishing: ${topic} = ${publishValue}`);
 
     this.mqttClient.publish(topic, publishValue, { retain: shouldRetain });
+  }
+
+  /**
+   * Handle widget update from Eviqo
+   */
+  private async handleWidgetUpdate(update: WidgetUpdate): Promise<void> {
+    this.publishWidgetValue(
+      update.deviceId,
+      update.widgetStream.name,
+      update.widgetValue
+    );
 
     // Emit event for external handlers
     this.emit('widgetUpdate', update);
@@ -456,28 +472,13 @@ export class EviqoMqttGateway extends EventEmitter {
    * Publish initial widget values for a device
    */
   private async publishInitialWidgetValues(device: EviqoDevicePageModel): Promise<void> {
-    if (!this.mqttClient || !this.mqttClient.connected) return;
-
     const dashboard = device.dashboard;
 
     for (const widget of dashboard.widgets) {
       for (const module of widget.modules) {
         for (const stream of module.displayDataStreams) {
-          const widgetName = stream.name;
-          const sensorId = normalizeTopicName(widgetName);
-          const topic = `${this.config.topicPrefix}/${device.id}/sensor/${sensorId}/state`;
-
-          // Publish initial value if available from visualization
           const rawValue = stream.visualization.value || '0';
-
-          // Apply value transformer if one exists for this widget
-          const transformer = VALUE_TRANSFORMERS[widgetName];
-          const publishValue = transformer ? transformer(rawValue) : rawValue;
-
-          // State values should not be retained (they're transient)
-          const shouldRetain = widgetName !== 'State';
-
-          this.mqttClient.publish(topic, publishValue, { retain: shouldRetain });
+          this.publishWidgetValue(device.id, stream.name, rawValue);
         }
       }
     }
