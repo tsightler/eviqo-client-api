@@ -59,15 +59,17 @@ export const WIDGET_MAPPINGS: Record<string, { device_class?: string; unit?: str
   // Electrical
   'Voltage': { device_class: 'voltage', unit: 'V', state_class: 'measurement' },
   'Current': { device_class: 'current', unit: 'A', state_class: 'measurement' },
+  'Amperage': { device_class: 'current', unit: 'A', state_class: 'measurement' },
   'Frequency': { device_class: 'frequency', unit: 'Hz', state_class: 'measurement' },
 
   // Temperature
   'Temperature': { device_class: 'temperature', unit: '°C', state_class: 'measurement' },
   'Charger Temperature': { device_class: 'temperature', unit: '°C', state_class: 'measurement' },
 
-  // Time/Duration
-  'Charging Time': { device_class: 'duration', unit: 's', state_class: 'measurement', icon: 'mdi:timer' },
-  'Session Duration': { device_class: 'duration', unit: 's', state_class: 'measurement', icon: 'mdi:timer' },
+  // Session
+  'Session duration': { icon: 'mdi:timer' },
+  'Session power': { device_class: 'energy', unit: 'kWh', state_class: 'total_increasing' },
+  'Session cost': { device_class: 'monetary', icon: 'mdi:currency-usd' },
 
   // Status
   'Status': { icon: 'mdi:ev-station' },
