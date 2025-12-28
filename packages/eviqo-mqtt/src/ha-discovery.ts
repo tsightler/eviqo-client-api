@@ -80,7 +80,7 @@ export const WIDGET_MAPPINGS: Record<string, WidgetMapping> = {
   // Session
   'Session duration': { icon: 'mdi:timer' },
   'Session power': { device_class: 'energy', unit: 'kWh', state_class: 'total_increasing' },
-  'Session cost': { icon: 'mdi:currency-usd', unit: '€' },
+  'Session cost': { icon: 'mdi:currency-usd' },
 
   // Status
   'Status': { icon: 'mdi:ev-station' },
