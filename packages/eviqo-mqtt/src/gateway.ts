@@ -393,6 +393,13 @@ export class EviqoMqttGateway extends EventEmitter {
 
     // Widget state values are not retained
     this.mqttClient.publish(topic, publishValue, { retain: false });
+
+    // If this is Status, also update the charging binary sensor
+    if (widgetName === 'Status') {
+      const chargingTopic = `${this.config.topicPrefix}/${deviceId}/charging/state`;
+      const isCharging = rawValue === '2'; // 2 = charging
+      this.mqttClient.publish(chargingTopic, isCharging ? 'ON' : 'OFF', { retain: false });
+    }
   }
 
   /**
