@@ -479,14 +479,15 @@ export class EviqoMqttGateway extends EventEmitter {
   /**
    * Handle charging switch command (ON/OFF)
    *
-   * Command sequences based on current status:
-   * - To STOP (status=2 charging): send 3 (stop), then 0
-   * - To START (status=1 plugged): send 2 (start), then 0
-   * - To START (status=3 stopped): send 1, then 0, wait 250ms, send 2, then 0
+   * Command sequences based on current status (with 25ms delays between commands):
+   * - To STOP (status=2 charging): send 2, then 0
+   * - To START (status=1 plugged): send 1, then 0
+   * - To START (status=3 stopped): send 3, then 0, then 1, then 0
    */
   private async handleChargingCommand(deviceId: string, command: string): Promise<void> {
     const currentStatus = this.deviceStatus.get(deviceId);
     const chargingPin = '15'; // Pin for charging control
+    const delay = () => new Promise(resolve => setTimeout(resolve, 25));
 
     logger.info(`Charging command: ${command} for device ${deviceId} (current status: ${currentStatus})`);
 
@@ -497,7 +498,8 @@ export class EviqoMqttGateway extends EventEmitter {
           logger.warn(`Cannot stop charging: device ${deviceId} is not charging (status=${currentStatus})`);
           return;
         }
-        await this.eviqoClient!.sendCommand(deviceId, chargingPin, '3');
+        await this.eviqoClient!.sendCommand(deviceId, chargingPin, '2');
+        await delay();
         await this.eviqoClient!.sendCommand(deviceId, chargingPin, '0');
         logger.info(`Charging stopped for device ${deviceId}`);
       } else if (command === 'ON') {
@@ -510,15 +512,18 @@ export class EviqoMqttGateway extends EventEmitter {
           return;
         } else if (currentStatus === '1') {
           // Plugged - send start command
-          await this.eviqoClient!.sendCommand(deviceId, chargingPin, '2');
+          await this.eviqoClient!.sendCommand(deviceId, chargingPin, '1');
+          await delay();
           await this.eviqoClient!.sendCommand(deviceId, chargingPin, '0');
           logger.info(`Charging started for device ${deviceId}`);
         } else if (currentStatus === '3') {
           // Stopped - need to unlock then start
-          await this.eviqoClient!.sendCommand(deviceId, chargingPin, '1');
+          await this.eviqoClient!.sendCommand(deviceId, chargingPin, '3');
+          await delay();
           await this.eviqoClient!.sendCommand(deviceId, chargingPin, '0');
-          await new Promise(resolve => setTimeout(resolve, 250));
-          await this.eviqoClient!.sendCommand(deviceId, chargingPin, '2');
+          await delay();
+          await this.eviqoClient!.sendCommand(deviceId, chargingPin, '1');
+          await delay();
           await this.eviqoClient!.sendCommand(deviceId, chargingPin, '0');
           logger.info(`Charging started for device ${deviceId} (from stopped state)`);
         } else {
