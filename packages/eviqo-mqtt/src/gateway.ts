@@ -607,7 +607,7 @@ export class EviqoMqttGateway extends EventEmitter {
       return;
     }
 
-    logger.info(`Updating state after command: ${stateTopic} = ${command.value}`);
+    logger.debug(`Updating state after command: ${stateTopic} = ${command.value}`);
     this.mqttClient.publish(stateTopic, command.value, { retain: false });
   }
 

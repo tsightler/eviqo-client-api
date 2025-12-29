@@ -155,7 +155,7 @@ export class EviqoWebsocketConnection extends EventEmitter {
 
     if (elapsed >= 15000) {
       // 15 seconds
-      logger.info('Issue keepalive');
+      logger.debug('Issue keepalive');
       this.keepaliveTimer = new Date();
       await this.sendMessage(null, 0x00, 0x06, 0x00, undefined, 'KEEPALIVE');
       await this.listen();
@@ -428,7 +428,7 @@ export class EviqoWebsocketConnection extends EventEmitter {
       return;
     }
 
-    logger.info(
+    logger.debug(
       `${this.getTimestamp()} [${widgetStream.name}] = ${widgetValue}`
     );
 
