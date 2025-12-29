@@ -66,6 +66,11 @@ export class EviqoMqttGateway extends EventEmitter {
   private deviceStatus: Map<string, string> = new Map();
   // Map charging command topics to device IDs
   private chargingCommandTopicMap: Map<string, string> = new Map();
+  // Track pending charging state per device for optimistic updates
+  // When a command is sent, we block real state updates until desired state is reached or timeout
+  private pendingChargingState: Map<string, { desiredState: 'ON' | 'OFF'; expiresAt: number }> = new Map();
+  // Timeout for pending state (ms) - after this, real state updates are allowed again
+  private static readonly PENDING_STATE_TIMEOUT = 5000;
 
   constructor(config: GatewayConfig) {
     super();
@@ -418,7 +423,30 @@ export class EviqoMqttGateway extends EventEmitter {
 
       const chargingTopic = `${this.config.topicPrefix}/${deviceId}/charging/state`;
       const isCharging = rawValue === '2'; // 2 = charging
-      this.mqttClient.publish(chargingTopic, isCharging ? 'ON' : 'OFF', { retain });
+      const realState = isCharging ? 'ON' : 'OFF';
+
+      // Check if there's a pending state for this device
+      const pending = this.pendingChargingState.get(String(deviceId));
+      if (pending) {
+        const now = Date.now();
+        if (realState === pending.desiredState) {
+          // Desired state reached - clear pending and publish
+          logger.debug(`Charging state reached desired state ${realState} for device ${deviceId}`);
+          this.pendingChargingState.delete(String(deviceId));
+          this.mqttClient.publish(chargingTopic, realState, { retain });
+        } else if (now >= pending.expiresAt) {
+          // Timeout expired - clear pending and publish real state
+          logger.warn(`Pending charging state timed out for device ${deviceId}, publishing real state ${realState}`);
+          this.pendingChargingState.delete(String(deviceId));
+          this.mqttClient.publish(chargingTopic, realState, { retain });
+        } else {
+          // Still pending - skip this update
+          logger.debug(`Blocking charging state update for device ${deviceId}, pending ${pending.desiredState}`);
+        }
+      } else {
+        // No pending state - publish normally
+        this.mqttClient.publish(chargingTopic, realState, { retain });
+      }
     }
   }
 
@@ -483,6 +511,9 @@ export class EviqoMqttGateway extends EventEmitter {
    * - To STOP (status=2 charging): send 2, then 0
    * - To START (status=1 plugged): send 1, then 0
    * - To START (status=3 stopped): send 3, then 0, then 1, then 0
+   *
+   * Uses optimistic state updates - immediately publishes desired state and blocks
+   * real state updates until the desired state is reached or timeout expires.
    */
   private async handleChargingCommand(deviceId: string, command: string): Promise<void> {
     const currentStatus = this.deviceStatus.get(deviceId);
@@ -501,6 +532,8 @@ export class EviqoMqttGateway extends EventEmitter {
         await this.eviqoClient!.sendCommand(deviceId, chargingPin, '2');
         await delay();
         await this.eviqoClient!.sendCommand(deviceId, chargingPin, '0');
+        // Set optimistic state
+        this.setOptimisticChargingState(deviceId, 'OFF');
         logger.info(`Charging stopped for device ${deviceId}`);
       } else if (command === 'ON') {
         // Start charging - depends on current status
@@ -515,6 +548,8 @@ export class EviqoMqttGateway extends EventEmitter {
           await this.eviqoClient!.sendCommand(deviceId, chargingPin, '1');
           await delay();
           await this.eviqoClient!.sendCommand(deviceId, chargingPin, '0');
+          // Set optimistic state
+          this.setOptimisticChargingState(deviceId, 'ON');
           logger.info(`Charging started for device ${deviceId}`);
         } else if (currentStatus === '3') {
           // Stopped - need to unlock then start
@@ -525,6 +560,8 @@ export class EviqoMqttGateway extends EventEmitter {
           await this.eviqoClient!.sendCommand(deviceId, chargingPin, '1');
           await delay();
           await this.eviqoClient!.sendCommand(deviceId, chargingPin, '0');
+          // Set optimistic state
+          this.setOptimisticChargingState(deviceId, 'ON');
           logger.info(`Charging started for device ${deviceId} (from stopped state)`);
         } else {
           logger.warn(`Unknown status ${currentStatus} for device ${deviceId}`);
@@ -534,6 +571,25 @@ export class EviqoMqttGateway extends EventEmitter {
       }
     } catch (error) {
       logger.error(`Failed to send charging command: ${error}`);
+    }
+  }
+
+  /**
+   * Set optimistic charging state and publish immediately
+   * Blocks real state updates until desired state is reached or timeout expires
+   */
+  private setOptimisticChargingState(deviceId: string, desiredState: 'ON' | 'OFF'): void {
+    // Set pending state with expiration
+    this.pendingChargingState.set(deviceId, {
+      desiredState,
+      expiresAt: Date.now() + EviqoMqttGateway.PENDING_STATE_TIMEOUT,
+    });
+
+    // Publish optimistic state immediately
+    if (this.mqttClient && this.mqttClient.connected) {
+      const chargingTopic = `${this.config.topicPrefix}/${deviceId}/charging/state`;
+      this.mqttClient.publish(chargingTopic, desiredState, { retain: false });
+      logger.debug(`Published optimistic charging state ${desiredState} for device ${deviceId}`);
     }
   }
 
