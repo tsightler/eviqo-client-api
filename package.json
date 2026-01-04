@@ -1,6 +1,6 @@
 {
   "name": "eviqo-monorepo",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "description": "Eviqo EV Charger client API and MQTT gateway monorepo",
   "workspaces": [
