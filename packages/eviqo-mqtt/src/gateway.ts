@@ -25,6 +25,11 @@ import {
 } from './ha-discovery';
 
 /**
+ * Session entity names - these are only updated during charging
+ */
+const SESSION_ENTITIES = new Set(['Session duration', 'Session power', 'Session cost']);
+
+/**
  * Value transformers for specific widgets
  * Maps widget name to a function that transforms the raw value
  */
@@ -403,6 +408,15 @@ export class EviqoMqttGateway extends EventEmitter {
 
     // Only publish widgets that have a mapping defined
     if (!isInWidgetMappings && !controlSettings) return;
+
+    // Session entities are only updated during charging
+    if (SESSION_ENTITIES.has(widgetName)) {
+      const currentStatus = this.deviceStatus.get(String(deviceId));
+      if (currentStatus !== '2') {
+        logger.debug(`Skipping ${widgetName} update for device ${deviceId}: not charging (status=${currentStatus})`);
+        return;
+      }
+    }
 
     // Apply value transformer if one exists for this widget
     const transformer = VALUE_TRANSFORMERS[widgetName];
