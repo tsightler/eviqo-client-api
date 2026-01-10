@@ -21,6 +21,8 @@ export interface GatewayConfig {
   discoveryPrefix: string;
   pollInterval: number;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
+  /** Interval in ms to force websocket reconnection (default: 24 hours). Set to 0 to disable. */
+  wsReconnectInterval: number;
 }
 
 /**
@@ -94,6 +96,7 @@ export function loadConfig(): GatewayConfig {
     discoveryPrefix: process.env.HASS_DISCOVERY_PREFIX || 'homeassistant',
     pollInterval: parseInt(process.env.EVIQO_POLL_INTERVAL || '30000', 10),
     logLevel: (process.env.EVIQO_LOG_LEVEL as GatewayConfig['logLevel']) || 'info',
+    wsReconnectInterval: parseInt(process.env.EVIQO_WS_RECONNECT_INTERVAL || '86400000', 10), // 24 hours default
   };
 
   // Validate required configuration

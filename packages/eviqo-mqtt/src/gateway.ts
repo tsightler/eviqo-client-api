@@ -76,6 +76,8 @@ export class EviqoMqttGateway extends EventEmitter {
   private pendingChargingState: Map<string, { desiredState: 'ON' | 'OFF'; expiresAt: number }> = new Map();
   // Timeout for pending state (ms) - after this, real state updates are allowed again
   private static readonly PENDING_STATE_TIMEOUT = 5000;
+  // Track when the Eviqo websocket connection was established (for periodic reconnection)
+  private lastEviqoConnectTime: number = 0;
 
   constructor(config: GatewayConfig) {
     super();
@@ -220,6 +222,9 @@ export class EviqoMqttGateway extends EventEmitter {
   private async connectEviqo(): Promise<void> {
     logger.info('Connecting to Eviqo API...');
 
+    // Track connection time for periodic reconnection
+    this.lastEviqoConnectTime = Date.now();
+
     this.eviqoClient = new EviqoWebsocketConnection(
       WS_URL,
       null,
@@ -349,6 +354,13 @@ export class EviqoMqttGateway extends EventEmitter {
   private async monitorLoop(): Promise<void> {
     while (!this.shutdownRequested && this.eviqoClient) {
       try {
+        // Check if periodic reconnection is needed (to prevent auth timeout)
+        if (this.shouldReconnect()) {
+          logger.info('Periodic websocket reconnection triggered to prevent auth timeout');
+          this.scheduleReconnect(0); // Reconnect immediately
+          break;
+        }
+
         // Send keepalive
         await this.eviqoClient.keepalive();
 
@@ -367,12 +379,27 @@ export class EviqoMqttGateway extends EventEmitter {
   }
 
   /**
-   * Schedule a reconnection attempt
+   * Check if periodic reconnection should occur
+   * Returns true if wsReconnectInterval > 0 and the interval has elapsed
    */
-  private scheduleReconnect(): void {
+  private shouldReconnect(): boolean {
+    if (this.config.wsReconnectInterval <= 0) return false;
+    const elapsed = Date.now() - this.lastEviqoConnectTime;
+    return elapsed >= this.config.wsReconnectInterval;
+  }
+
+  /**
+   * Schedule a reconnection attempt
+   * @param delay - Delay in ms before reconnecting (default: 30000ms)
+   */
+  private scheduleReconnect(delay = 30000): void {
     if (this.shutdownRequested) return;
 
-    logger.info('Scheduling reconnection in 30 seconds...');
+    if (delay > 0) {
+      logger.info(`Scheduling reconnection in ${delay / 1000} seconds...`);
+    } else {
+      logger.info('Reconnecting now...');
+    }
     this.setState('connecting');
 
     this.reconnectTimer = setTimeout(async () => {
@@ -384,7 +411,7 @@ export class EviqoMqttGateway extends EventEmitter {
         logger.error(`Reconnection failed: ${error}`);
         this.scheduleReconnect();
       }
-    }, 30000);
+    }, delay);
   }
 
   /**
