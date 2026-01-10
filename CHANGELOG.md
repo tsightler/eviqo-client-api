@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.6] - 2026-01-10
+
+### Added
+- Periodic websocket reconnection to prevent auth timeout (default: 24 hours)
+- New `EVIQO_WS_RECONNECT_INTERVAL` environment variable to configure reconnect interval
+
+### Fixed
+- Fixed issue where updates would stop after a few days due to websocket auth expiration
+
 ## [1.0.5] - 2025-01-03
 
 ### Changed
