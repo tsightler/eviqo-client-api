@@ -122,18 +122,30 @@ export class EviqoWebsocketConnection extends EventEmitter {
           return;
         }
 
-        this.ws.on('open', () => {
+        const connectHandler = () => {
           logger.debug('Connected successfully!');
+          this.ws!.removeListener('error', errorHandler);
           resolve(true);
+        };
+
+        const errorHandler = (error: Error) => {
+          logger.error(`WebSocket error: ${error.message}`);
+          this.ws!.removeListener('open', connectHandler);
+          reject(error);
+        };
+
+        this.ws.once('open', connectHandler);
+        this.ws.once('error', errorHandler);
+
+        // Set up persistent handlers for ongoing connection monitoring
+        this.ws.on('close', (code, reason) => {
+          logger.warn(`WebSocket closed: code=${code} reason=${reason.toString()}`);
+          this.emit('connectionClosed', { code, reason: reason.toString() });
         });
 
         this.ws.on('error', (error) => {
-          logger.error(`WebSocket error: ${error.message}`);
-          reject(error);
-        });
-
-        this.ws.on('close', () => {
-          logger.debug('WebSocket closed');
+          logger.error(`WebSocket error during operation: ${error.message}`);
+          this.emit('connectionError', error);
         });
       });
     } catch (error) {
@@ -462,12 +474,15 @@ export class EviqoWebsocketConnection extends EventEmitter {
     }
 
     try {
+      // Declare handler in outer scope so both promises can access it
+      let messageHandler: ((message: WebSocket.Data) => void) | null = null;
+
       return await Promise.race([
         new Promise<{
           header: MessageHeader | null;
           payload: Record<string, unknown> | string | null;
         }>((resolve) => {
-          const messageHandler = (message: WebSocket.Data) => {
+          messageHandler = (message: WebSocket.Data) => {
             if (message instanceof Buffer) {
               logger.debug(`RECEIVED BINARY (${message.length} bytes):`);
               const { header, payload } = parseBinaryMessage(message);
@@ -476,7 +491,10 @@ export class EviqoWebsocketConnection extends EventEmitter {
                 this.handleWidgetUpdate(payload as Record<string, unknown>);
               }
 
-              this.ws?.removeListener('message', messageHandler);
+              if (messageHandler) {
+                this.ws?.removeListener('message', messageHandler);
+                messageHandler = null; // Prevent double removal
+              }
               resolve({ header, payload });
             }
           };
@@ -489,6 +507,10 @@ export class EviqoWebsocketConnection extends EventEmitter {
         }>((resolve) => {
           setTimeout(() => {
             logger.debug('Listening period ended');
+            if (messageHandler) {
+              this.ws?.removeListener('message', messageHandler);
+              messageHandler = null; // Prevent double removal
+            }
             resolve({ header: null, payload: null });
           }, duration * 1000);
         }),
@@ -636,5 +658,12 @@ export class EviqoWebsocketConnection extends EventEmitter {
    */
   getDevicePages(): EviqoDevicePageModel[] {
     return this.devicePages;
+  }
+
+  /**
+   * Check if websocket is connected and ready
+   */
+  isConnected(): boolean {
+    return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
   }
 }
