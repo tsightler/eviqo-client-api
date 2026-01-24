@@ -1,6 +1,6 @@
 {
   "name": "eviqo-mqtt",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "MQTT gateway for Eviqo EV charging stations with Home Assistant auto-discovery support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
