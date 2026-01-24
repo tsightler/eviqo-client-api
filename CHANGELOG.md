@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.7] - 2026-01-24
+
+### Fixed
+- Fixed critical memory leak in websocket listener that accumulated handlers over time
+- Fixed websocket connection not being detected when closed unexpectedly
+- Added connection state monitoring to trigger reconnection when websocket closes
+- Added proper cleanup of old event listeners during reconnection
+
 ## [1.0.6] - 2026-01-10
 
 ### Added

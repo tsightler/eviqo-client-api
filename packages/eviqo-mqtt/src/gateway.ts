@@ -225,6 +225,11 @@ export class EviqoMqttGateway extends EventEmitter {
     // Track connection time for periodic reconnection
     this.lastEviqoConnectTime = Date.now();
 
+    // Remove old event listeners if reconnecting
+    if (this.eviqoClient) {
+      this.eviqoClient.removeAllListeners();
+    }
+
     this.eviqoClient = new EviqoWebsocketConnection(
       WS_URL,
       null,
@@ -240,6 +245,20 @@ export class EviqoMqttGateway extends EventEmitter {
     // Set up command sent handler to update state immediately
     this.eviqoClient.on('commandSent', (command: { deviceId: string; pin: string; value: string }) => {
       this.handleCommandSent(command);
+    });
+
+    // Set up connection monitoring handlers
+    this.eviqoClient.on('connectionClosed', (info: { code: number; reason: string }) => {
+      if (!this.shutdownRequested) {
+        logger.warn(`Eviqo websocket closed unexpectedly: code=${info.code} reason=${info.reason}`);
+        this.scheduleReconnect();
+      }
+    });
+
+    this.eviqoClient.on('connectionError', (error: Error) => {
+      if (!this.shutdownRequested) {
+        logger.error(`Eviqo websocket error: ${error.message}`);
+      }
     });
 
     // Connect and authenticate
@@ -354,6 +373,15 @@ export class EviqoMqttGateway extends EventEmitter {
   private async monitorLoop(): Promise<void> {
     while (!this.shutdownRequested && this.eviqoClient) {
       try {
+        // Check if websocket is still connected
+        if (!this.eviqoClient.isConnected()) {
+          logger.warn('Eviqo websocket is no longer connected');
+          if (!this.shutdownRequested) {
+            this.scheduleReconnect();
+          }
+          break;
+        }
+
         // Check if periodic reconnection is needed (to prevent auth timeout)
         if (this.shouldReconnect()) {
           logger.info('Periodic websocket reconnection triggered to prevent auth timeout');
