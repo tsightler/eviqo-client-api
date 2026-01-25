@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.8] - 2026-01-24
+
+### Fixed
+- Fixed session entities (duration, power, cost) not resetting to zero when charging starts
+
 ## [1.0.7] - 2026-01-24
 
 ### Fixed

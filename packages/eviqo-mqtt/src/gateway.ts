@@ -487,8 +487,23 @@ export class EviqoMqttGateway extends EventEmitter {
 
     // If this is Status, track the status and update the charging switch
     if (widgetName === 'Status') {
+      // Check if status is changing to charging
+      const previousStatus = this.deviceStatus.get(String(deviceId));
+      const isChargingNow = rawValue === '2';
+      const wasNotCharging = previousStatus !== '2';
+
       // Track status for charging control logic
       this.deviceStatus.set(String(deviceId), rawValue);
+
+      // Reset session entities to zero when charging starts
+      if (isChargingNow && wasNotCharging) {
+        logger.debug(`Status changed to charging for device ${deviceId}, resetting session entities to zero`);
+        for (const sessionEntity of SESSION_ENTITIES) {
+          const sensorId = getTopicId(sessionEntity);
+          const sessionTopic = `${this.config.topicPrefix}/${deviceId}/${sensorId}/state`;
+          this.mqttClient.publish(sessionTopic, '0', { retain });
+        }
+      }
 
       const chargingTopic = `${this.config.topicPrefix}/${deviceId}/charging/state`;
       const isCharging = rawValue === '2'; // 2 = charging

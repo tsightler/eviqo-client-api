@@ -1,6 +1,6 @@
 {
   "name": "eviqo-client-api",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Node.js/TypeScript client library for Eviqo EV charging stations. Control and monitor your Eviqo devices via cloud WebSocket connection with full TypeScript support.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

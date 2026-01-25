@@ -9,9 +9,12 @@
  *   npm run release minor        - Bump minor version (1.0.4 -> 1.1.0)
  *   npm run release major        - Bump major version (1.0.4 -> 2.0.0)
  *
- * Options:
- *   --no-git     Skip git commit and tag
- *   --push       Push commits and tags to origin
+ * This script will:
+ *   1. Update version in package.json files and config.yaml
+ *   2. Run npm update to update dependencies
+ *   3. Commit and push changes to dev branch
+ *   4. Merge dev into main
+ *   5. Create and push version tag on main
  */
 
 const fs = require('fs');
@@ -30,19 +33,16 @@ const CONFIG_FILE = 'config.yaml';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
-const versionArg = args.find(arg => !arg.startsWith('--'));
-const noGit = args.includes('--no-git');
-const push = args.includes('--push');
+const versionArg = args[0];
 
 if (!versionArg) {
-  console.error('Usage: npm run release <version|patch|minor|major> [--no-git] [--push]');
+  console.error('Usage: npm run release <version|patch|minor|major>');
   console.error('');
   console.error('Examples:');
   console.error('  npm run release 1.2.0      # Set specific version');
   console.error('  npm run release patch      # Bump patch (1.0.4 -> 1.0.5)');
   console.error('  npm run release minor      # Bump minor (1.0.4 -> 1.1.0)');
   console.error('  npm run release major      # Bump major (1.0.4 -> 2.0.0)');
-  console.error('  npm run release patch --push  # Bump and push to origin');
   process.exit(1);
 }
 
@@ -147,49 +147,107 @@ function checkCleanWorkingDir() {
   }
 }
 
+/**
+ * Get current branch name
+ */
+function getCurrentBranch() {
+  return git('rev-parse --abbrev-ref HEAD');
+}
+
+/**
+ * Execute npm command
+ */
+function npm(command) {
+  try {
+    console.log(`  Running: npm ${command}`);
+    execSync(`npm ${command}`, { cwd: ROOT_DIR, encoding: 'utf8', stdio: 'inherit' });
+  } catch (error) {
+    console.error(`\nNpm command failed: npm ${command}`);
+    console.error(error.message);
+    process.exit(1);
+  }
+}
+
 // Main execution
 try {
   const currentVersion = getCurrentVersion();
   const newVersion = getNewVersion(versionArg);
+  const currentBranch = getCurrentBranch();
 
   console.log(`\nReleasing version ${newVersion} (current: ${currentVersion})\n`);
 
-  if (!noGit) {
-    checkCleanWorkingDir();
+  // Verify we're on dev branch
+  if (currentBranch !== 'dev') {
+    console.error(`Error: Must be on 'dev' branch to release. Currently on '${currentBranch}'.`);
+    console.error('Please switch to dev branch first: git checkout dev');
+    process.exit(1);
   }
 
+  // Check working directory is clean
+  checkCleanWorkingDir();
+
   // Update all files
-  console.log('Updating version in files:');
+  console.log('Step 1: Updating version in files:');
   PACKAGE_FILES.forEach(file => updatePackageJson(file, newVersion));
   updateConfigYaml(newVersion);
 
-  if (!noGit) {
-    console.log('\nCreating git commit and tag...');
+  // Run npm update
+  console.log('\nStep 2: Running npm update...');
+  npm('update');
 
-    // Stage all changes
-    PACKAGE_FILES.forEach(file => git(`add ${file}`));
-    git(`add ${CONFIG_FILE}`);
+  // Stage all changes (including package-lock.json from npm update)
+  console.log('\nStep 3: Committing changes...');
+  PACKAGE_FILES.forEach(file => git(`add ${file}`));
+  git(`add ${CONFIG_FILE}`);
+  git('add package-lock.json');
+  git('add packages/*/package-lock.json');
 
-    // Commit
-    git(`commit -m "chore: bump version to ${newVersion}"`);
-    console.log(`  Created commit: chore: bump version to ${newVersion}`);
+  // Commit
+  git(`commit -m "chore: bump version to ${newVersion}"`);
+  console.log(`  Created commit: chore: bump version to ${newVersion}`);
 
-    // Tag
-    git(`tag -a v${newVersion} -m "Release v${newVersion}"`);
-    console.log(`  Created tag: v${newVersion}`);
+  // Push dev branch
+  console.log('\nStep 4: Pushing to dev branch...');
+  git('push origin dev');
+  console.log('  Pushed dev branch to origin');
 
-    if (push) {
-      console.log('\nPushing to origin...');
-      git('push origin');
-      git('push origin --tags');
-      console.log('  Pushed commits and tags to origin');
-    } else {
-      console.log('\nTo push the release:');
-      console.log('  git push origin && git push origin --tags');
-    }
-  }
+  // Switch to main branch
+  console.log('\nStep 5: Merging dev into main...');
+  git('checkout main');
+  console.log('  Switched to main branch');
+
+  // Pull latest main
+  git('pull origin main');
+  console.log('  Pulled latest main');
+
+  // Merge dev into main
+  git(`merge dev --no-ff -m "Merge dev for release v${newVersion}"`);
+  console.log('  Merged dev into main');
+
+  // Create tag on main
+  console.log('\nStep 6: Creating release tag...');
+  git(`tag -a v${newVersion} -m "Release v${newVersion}"`);
+  console.log(`  Created tag: v${newVersion}`);
+
+  // Push main and tags
+  console.log('\nStep 7: Pushing main branch and tags...');
+  git('push origin main');
+  git('push origin --tags');
+  console.log('  Pushed main branch and tags to origin');
+
+  // Switch back to dev
+  console.log('\nStep 8: Switching back to dev branch...');
+  git('checkout dev');
+  console.log('  Switched back to dev branch');
 
   console.log(`\n✓ Release ${newVersion} complete!\n`);
+  console.log('Summary:');
+  console.log(`  - Version bumped to ${newVersion}`);
+  console.log(`  - Dependencies updated`);
+  console.log(`  - Changes committed and pushed to dev`);
+  console.log(`  - Dev merged into main`);
+  console.log(`  - Tag v${newVersion} created and pushed`);
+  console.log(`  - Back on dev branch\n`);
 
 } catch (error) {
   console.error(`\nError: ${error.message}\n`);
