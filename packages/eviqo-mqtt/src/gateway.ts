@@ -655,10 +655,19 @@ export class EviqoMqttGateway extends EventEmitter {
     if (!this.mqttClient || !this.mqttClient.connected) return;
 
     logger.debug(`Resetting session entities to zero for device ${deviceId}`);
+
+    // Map each session entity to its zero value format
+    const resetValues: Record<string, string> = {
+      'Session duration': '00:00:00',
+      'Session power': '0',
+      'Session cost': '0.00',
+    };
+
     for (const sessionEntity of SESSION_ENTITIES) {
       const sensorId = getTopicId(sessionEntity);
       const sessionTopic = `${this.config.topicPrefix}/${deviceId}/${sensorId}/state`;
-      this.mqttClient.publish(sessionTopic, '0', { retain: false });
+      const resetValue = resetValues[sessionEntity] || '0';
+      this.mqttClient.publish(sessionTopic, resetValue, { retain: false });
     }
   }
 

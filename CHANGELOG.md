@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.0] - 2026-01-24
+
+### Fixed
+- Fixed session entity reset values to use proper formatting (duration: 00:00:00, cost: 0.00, power: 0)
+
 ## [1.0.9] - 2026-01-24
 
 ### Fixed
