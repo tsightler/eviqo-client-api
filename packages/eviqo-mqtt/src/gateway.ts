@@ -487,23 +487,8 @@ export class EviqoMqttGateway extends EventEmitter {
 
     // If this is Status, track the status and update the charging switch
     if (widgetName === 'Status') {
-      // Check if status is changing to charging
-      const previousStatus = this.deviceStatus.get(String(deviceId));
-      const isChargingNow = rawValue === '2';
-      const wasNotCharging = previousStatus !== '2';
-
       // Track status for charging control logic
       this.deviceStatus.set(String(deviceId), rawValue);
-
-      // Reset session entities to zero when charging starts
-      if (isChargingNow && wasNotCharging) {
-        logger.debug(`Status changed to charging for device ${deviceId}, resetting session entities to zero`);
-        for (const sessionEntity of SESSION_ENTITIES) {
-          const sensorId = getTopicId(sessionEntity);
-          const sessionTopic = `${this.config.topicPrefix}/${deviceId}/${sensorId}/state`;
-          this.mqttClient.publish(sessionTopic, '0', { retain });
-        }
-      }
 
       const chargingTopic = `${this.config.topicPrefix}/${deviceId}/charging/state`;
       const isCharging = rawValue === '2'; // 2 = charging
@@ -632,6 +617,8 @@ export class EviqoMqttGateway extends EventEmitter {
           await this.eviqoClient!.sendCommand(deviceId, chargingPin, '1');
           await delay();
           await this.eviqoClient!.sendCommand(deviceId, chargingPin, '0');
+          // Reset session entities to zero immediately
+          this.resetSessionEntities(deviceId);
           // Set optimistic state
           this.setOptimisticChargingState(deviceId, 'ON');
           logger.info(`Charging started for device ${deviceId}`);
@@ -644,6 +631,8 @@ export class EviqoMqttGateway extends EventEmitter {
           await this.eviqoClient!.sendCommand(deviceId, chargingPin, '1');
           await delay();
           await this.eviqoClient!.sendCommand(deviceId, chargingPin, '0');
+          // Reset session entities to zero immediately
+          this.resetSessionEntities(deviceId);
           // Set optimistic state
           this.setOptimisticChargingState(deviceId, 'ON');
           logger.info(`Charging started for device ${deviceId} (from stopped state)`);
@@ -655,6 +644,21 @@ export class EviqoMqttGateway extends EventEmitter {
       }
     } catch (error) {
       logger.error(`Failed to send charging command: ${error}`);
+    }
+  }
+
+  /**
+   * Reset session entities to zero
+   * Called when charging starts to clear previous session data
+   */
+  private resetSessionEntities(deviceId: string): void {
+    if (!this.mqttClient || !this.mqttClient.connected) return;
+
+    logger.debug(`Resetting session entities to zero for device ${deviceId}`);
+    for (const sessionEntity of SESSION_ENTITIES) {
+      const sensorId = getTopicId(sessionEntity);
+      const sessionTopic = `${this.config.topicPrefix}/${deviceId}/${sensorId}/state`;
+      this.mqttClient.publish(sessionTopic, '0', { retain: false });
     }
   }
 
